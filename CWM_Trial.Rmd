@@ -1,0 +1,2567 @@
+---
+title: "CWM_Trials"
+author: "Hengxing Zou"
+date: "2024-10-09"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+library(tidyverse)
+library(cubble)
+
+library(foreach)
+library(doSNOW)
+
+# library(MASS)
+# library(glmnet)
+library(lmerTest)
+library(MuMIn)
+# library(brms)
+# library(bayesplot)
+
+library(FactoMineR)
+library(factoextra)
+
+# library(vegan)
+# library(ape)
+
+library(trajr)
+library(ggfortify)
+
+library(sf)
+
+cl = makeCluster(4)
+registerDoSNOW(cl)
+
+```
+
+# Prepare Data
+
+- Community-Weighted Metrics
+
+Change here to either include all species or only passerine species
+
+```{r}
+
+All_Weighted_Metrics = read_csv("CWM_Data/All_Weighted_Metrics_Exten.csv") %>% 
+  rename("Hand.Wing.Index" = "Hand-Wing.Index")
+
+```
+
+1384 grids, 11 traits
+
+- Environmental Data
+
+```{r}
+
+# Bioclimatic data
+
+Bioclim = read_csv("../Databases/WorldClim/Bioclim.csv")
+
+```
+
+List of bioclimatic variables:
+
+BIO1 = Annual Mean Temperature
+
+BIO2 = Mean Diurnal Range (Mean of monthly (max temp - min temp))
+
+BIO3 = Isothermality (BIO2/BIO7) (×100)
+
+BIO4 = Temperature Seasonality (standard deviation ×100)
+
+BIO5 = Max Temperature of Warmest Month
+
+BIO6 = Min Temperature of Coldest Month
+
+BIO7 = Temperature Annual Range (BIO5-BIO6)
+
+BIO8 = Mean Temperature of Wettest Quarter
+
+BIO9 = Mean Temperature of Driest Quarter
+
+BIO10 = Mean Temperature of Warmest Quarter
+
+BIO11 = Mean Temperature of Coldest Quarter
+
+BIO12 = Annual Precipitation
+
+BIO13 = Precipitation of Wettest Month
+
+BIO14 = Precipitation of Driest Month
+
+BIO15 = Precipitation Seasonality (Coefficient of Variation)
+
+BIO16 = Precipitation of Wettest Quarter
+
+BIO17 = Precipitation of Driest Quarter
+
+BIO18 = Precipitation of Warmest Quarter
+
+BIO19 = Precipitation of Coldest Quarter
+
+- Join CWMs and Environmental Data
+
+If removing all grids under 56N, total 1264 grids (91.33% of all 1384 grids)
+
+```{r}
+
+CWM_Env = inner_join(All_Weighted_Metrics, Bioclim, 
+                    by = c("Region" = "ST_12", "year" = "year")) %>% 
+  # year range
+  filter(year >= 1970) %>% 
+  mutate(year_since_1970 = year - 1970) %>% 
+  separate_wider_delim(Region, names = c("lat", "long"), delim = "_", cols_remove = F) %>% 
+  mutate(across(c("lat", "long"), as.numeric)) %>% 
+  # spatial range
+  filter(lat <= 55)
+
+```
+
+- Single CW-Metrics
+
+```{r}
+
+cwm_mean = CWM_Env %>% 
+  filter(Index == "Mean", Metric == "CWM")
+
+cwv_mean = CWM_Env %>% 
+  filter(Index == "Mean", Metric == "CWV")
+
+cws_mean = CWM_Env %>% 
+  filter(Index == "Mean", Metric == "CWS")
+
+```
+
+# Glyph Maps
+
+## CWM
+
+```{r}
+
+ for (t in traits) {
+  
+  plot_tr_SW = cwm_mean %>% 
+    filter(lat <= 40, long <= -100) %>% 
+    ggplot(aes_string(x_major = "long", y_major = "lat", 
+               x_minor = "year", y_minor = t)) + 
+    geom_glyph_box(width = 1, height = 1) + 
+    geom_glyph(width = 1, height = 1, 
+               aes(color = Community_Abundance)) +
+    ggtitle(t) + 
+    theme_bw()
+  
+  plot_tr_SE = cwm_mean %>% 
+    filter(lat <= 40, long > -100) %>% 
+    ggplot(aes_string(x_major = "long", y_major = "lat", 
+               x_minor = "year", y_minor = t)) + 
+    geom_glyph_box(width = 1, height = 1) + 
+    geom_glyph(width = 1, height = 1, 
+               aes(color = Community_Abundance)) +
+    ggtitle(t) + 
+    theme_bw()
+  
+  plot_tr_NW = cwm_mean %>% 
+    filter(lat > 40, long <= -100) %>% 
+    ggplot(aes_string(x_major = "long", y_major = "lat", 
+               x_minor = "year", y_minor = t)) + 
+    geom_glyph_box(width = 1, height = 1) + 
+    geom_glyph(width = 1, height = 1, 
+               aes(color = Community_Abundance)) +
+    ggtitle(t) + 
+    theme_bw()
+  
+  plot_tr_NE = cwm_mean %>% 
+    filter(lat > 40, long > -100) %>% 
+    ggplot(aes_string(x_major = "long", y_major = "lat", 
+               x_minor = "year", y_minor = t)) + 
+    geom_glyph_box(width = 1, height = 1) + 
+    geom_glyph(width = 1, height = 1, 
+               aes(color = Community_Abundance)) +
+    ggtitle(t) + 
+    theme_bw()
+  
+  ggsave(paste("CWM_Figures/GlyphMaps/CWM/CWM_", t, "_SW.pdf"), plot_tr_SW, device = "pdf", width = 5000, height = 2500, unit = "px")
+  ggsave(paste("CWM_Figures/GlyphMaps/CWM/CWM_", t, "_SE.pdf"), plot_tr_SE, device = "pdf", width = 5000, height = 2500, unit = "px")
+  ggsave(paste("CWM_Figures/GlyphMaps/CWM/CWM_", t, "_NW.pdf"), plot_tr_NW, device = "pdf", width = 5000, height = 2500, unit = "px")
+  ggsave(paste("CWM_Figures/GlyphMaps/CWM/CWM_", t, "_NE.pdf"), plot_tr_NE, device = "pdf", width = 5000, height = 2500, unit = "px")
+  
+}
+
+```
+
+## CWV
+
+```{r}
+
+ for (t in traits) {
+  
+  plot_tr_SW = cwv_mean %>% 
+    filter(lat <= 40, long <= -100) %>% 
+    ggplot(aes_string(x_major = "long", y_major = "lat", 
+               x_minor = "year", y_minor = t)) + 
+    geom_glyph_box(width = 1, height = 1) + 
+    geom_glyph(width = 1, height = 1, 
+               aes(color = Community_Abundance)) +
+    ggtitle(t) + 
+    theme_bw()
+  
+  plot_tr_SE = cwv_mean %>% 
+    filter(lat <= 40, long > -100) %>% 
+    ggplot(aes_string(x_major = "long", y_major = "lat", 
+               x_minor = "year", y_minor = t)) + 
+    geom_glyph_box(width = 1, height = 1) + 
+    geom_glyph(width = 1, height = 1, 
+               aes(color = Community_Abundance)) +
+    ggtitle(t) + 
+    theme_bw()
+  
+  plot_tr_NW = cwv_mean %>% 
+    filter(lat > 40, long <= -100) %>% 
+    ggplot(aes_string(x_major = "long", y_major = "lat", 
+               x_minor = "year", y_minor = t)) + 
+    geom_glyph_box(width = 1, height = 1) + 
+    geom_glyph(width = 1, height = 1, 
+               aes(color = Community_Abundance)) +
+    ggtitle(t) + 
+    theme_bw()
+  
+  plot_tr_NE = cwv_mean %>% 
+    filter(lat > 40, long > -100) %>% 
+    ggplot(aes_string(x_major = "long", y_major = "lat", 
+               x_minor = "year", y_minor = t)) + 
+    geom_glyph_box(width = 1, height = 1) + 
+    geom_glyph(width = 1, height = 1, 
+               aes(color = Community_Abundance)) +
+    ggtitle(t) + 
+    theme_bw()
+  
+  ggsave(paste("CWM_Figures/GlyphMaps/CWV/CWV_", t, "_SW.pdf"), plot_tr_SW, device = "pdf", width = 5000, height = 2500, unit = "px")
+  ggsave(paste("CWM_Figures/GlyphMaps/CWV/CWV_", t, "_SE.pdf"), plot_tr_SE, device = "pdf", width = 5000, height = 2500, unit = "px")
+  ggsave(paste("CWM_Figures/GlyphMaps/CWV/CWV_", t, "_NW.pdf"), plot_tr_NW, device = "pdf", width = 5000, height = 2500, unit = "px")
+  ggsave(paste("CWM_Figures/GlyphMaps/CWV/CWV_", t, "_NE.pdf"), plot_tr_NE, device = "pdf", width = 5000, height = 2500, unit = "px")
+  
+}
+
+```
+
+- CWS
+
+```{r}
+
+ for (t in traits) {
+  
+  plot_tr_SW = cws_mean %>% 
+    filter(lat <= 40, long <= -100) %>% 
+    ggplot(aes_string(x_major = "long", y_major = "lat", 
+               x_minor = "year", y_minor = t)) + 
+    geom_glyph_box(width = 1, height = 1) + 
+    geom_glyph(width = 1, height = 1, 
+               aes(color = Community_Abundance)) +
+    ggtitle(t) + 
+    theme_bw()
+  
+  plot_tr_SE = cws_mean %>% 
+    filter(lat <= 40, long > -100) %>% 
+    ggplot(aes_string(x_major = "long", y_major = "lat", 
+               x_minor = "year", y_minor = t)) + 
+    geom_glyph_box(width = 1, height = 1) + 
+    geom_glyph(width = 1, height = 1, 
+               aes(color = Community_Abundance)) +
+    ggtitle(t) + 
+    theme_bw()
+  
+  plot_tr_NW = cws_mean %>% 
+    filter(lat > 40, long <= -100) %>% 
+    ggplot(aes_string(x_major = "long", y_major = "lat", 
+               x_minor = "year", y_minor = t)) + 
+    geom_glyph_box(width = 1, height = 1) + 
+    geom_glyph(width = 1, height = 1, 
+               aes(color = Community_Abundance)) +
+    ggtitle(t) + 
+    theme_bw()
+  
+  plot_tr_NE = cws_mean %>% 
+    filter(lat > 40, long > -100) %>% 
+    ggplot(aes_string(x_major = "long", y_major = "lat", 
+               x_minor = "year", y_minor = t)) + 
+    geom_glyph_box(width = 1, height = 1) + 
+    geom_glyph(width = 1, height = 1, 
+               aes(color = Community_Abundance)) +
+    ggtitle(t) + 
+    theme_bw()
+  
+  ggsave(paste("CWM_Figures/GlyphMaps/CWS/CWS_", t, "_SW.pdf"), plot_tr_SW, device = "pdf", width = 5000, height = 2500, unit = "px")
+  ggsave(paste("CWM_Figures/GlyphMaps/CWS/CWS_", t, "_SE.pdf"), plot_tr_SE, device = "pdf", width = 5000, height = 2500, unit = "px")
+  ggsave(paste("CWM_Figures/GlyphMaps/CWS/CWS_", t, "_NW.pdf"), plot_tr_NW, device = "pdf", width = 5000, height = 2500, unit = "px")
+  ggsave(paste("CWM_Figures/GlyphMaps/CWS/CWS_", t, "_NE.pdf"), plot_tr_NE, device = "pdf", width = 5000, height = 2500, unit = "px")
+  
+}
+
+```
+
+# Slopes
+
+## CW Metrics ~ Lat
+
+- Calculation
+
+```{r}
+
+# All morphological and demographic traits
+
+# traits = colnames(All_Weighted_Metrics)[2:18]
+
+# Selected morphological and demographic traits
+
+traits = colnames(All_Weighted_Metrics)[12:19]
+
+# Morphological and dietary traits
+
+# traits = colnames(All_Weighted_Metrics)[2:30]
+
+cwm_lat_slopes = foreach(t = traits, 
+                           .combine = rbind, .packages = "tidyverse") %dopar% {
+  
+  slope_list = list()
+  
+  formula = as.formula(paste(t, "~", "lat"))
+  
+  for (y in unique(CWM_Env$year)) {
+
+    m_w = lm(formula = formula, 
+             weights = Community_Abundance, 
+             data = cwm_mean %>% 
+               filter(year == y))
+    m_e = lm(formula = formula, 
+             data = cwm_mean %>% 
+               filter(year == y))
+    
+    slope = tibble(Model = c("weighted", "unweighted"), 
+                   pValue = c(summary(m_w)$coefficients[2, 4], summary(m_e)$coefficients[2, 4]),
+                   Slope = c(summary(m_w)$coefficients[2, 1], summary(m_e)$coefficients[2, 1]), 
+                   year = y)
+    
+    slope_list[[y]] = slope
+    
+  }
+  
+  slopes = bind_rows(slope_list) %>% 
+    mutate(Trait = t)
+  slopes
+                             
+}
+
+cwv_lat_slopes = foreach(t = traits, 
+                     .combine = rbind, .packages = "tidyverse") %dopar% {
+                       
+  slope_list = list()
+  
+  formula = as.formula(paste(t, "~", "lat"))
+  
+  for (y in unique(CWM_Env$year)) {
+    
+    m_w = lm(formula = formula, 
+             weights = Community_Abundance, 
+             data = cwv_mean %>% 
+               filter(year == y))
+    m_e = lm(formula = formula, 
+             data = cwv_mean %>% 
+               filter(year == y))
+    
+    slope = tibble(Model = c("weighted", "unweighted"), 
+                   pValue = c(summary(m_w)$coefficients[2, 4], summary(m_e)$coefficients[2, 4]),
+                   Slope = c(summary(m_w)$coefficients[2, 1], summary(m_e)$coefficients[2, 1]), 
+                   year = y)
+    
+    slope_list[[y]] = slope
+    
+  }
+  
+  slopes = bind_rows(slope_list) %>% 
+    mutate(Trait = t)
+  slopes
+  
+}
+
+cws_lat_slopes = foreach(t = traits, 
+                         .combine = rbind, .packages = "tidyverse") %dopar% {
+                           
+  slope_list = list()
+  
+  formula = as.formula(paste(t, "~", "lat"))
+  
+  for (y in unique(CWM_Env$year)) {
+    
+    m_w = lm(formula = formula, 
+             weights = Community_Abundance, 
+             data = cws_mean %>% 
+               filter(year == y))
+    m_e = lm(formula = formula, 
+             data = cws_mean %>% 
+               filter(year == y))
+    
+    slope = tibble(Model = c("weighted", "unweighted"), 
+                   pValue = c(summary(m_w)$coefficients[2, 4], summary(m_e)$coefficients[2, 4]),
+                   Slope = c(summary(m_w)$coefficients[2, 1], summary(m_e)$coefficients[2, 1]), 
+                   year = y)
+    
+    slope_list[[y]] = slope
+    
+  }
+  
+  slopes = bind_rows(slope_list) %>% 
+    mutate(Trait = t)
+  slopes
+  
+}
+
+```
+
+- Visualization, Both Models
+
+```{r}
+
+p_cwm_lat_slopes = cwm_lat_slopes %>% 
+  mutate(Signif = ifelse(pValue >= 0.05, "No", "Yes")) %>% 
+  ggplot(aes(x = Model, y = Slope)) + 
+  geom_boxplot() +
+  geom_point(position = position_jitter(0.1), 
+             size = 3, shape = 2,
+             aes(color = `year`, alpha = Signif)) +
+  geom_hline(yintercept = 0, color = "red") + 
+  scale_alpha_manual(values = c(0.2, 0.8)) + 
+  scale_color_gradientn(colors = viridis::viridis(10)) + 
+  ggh4x::facet_wrap2(. ~ Trait, scales = "free_y") + 
+  theme_bw()
+
+p_cwv_lat_slopes = cwv_lat_slopes %>% 
+  mutate(Signif = ifelse(pValue >= 0.05, "No", "Yes")) %>% 
+  ggplot(aes(x = Model, y = Slope)) + 
+  geom_boxplot() +
+  geom_point(position = position_jitter(0.1), 
+             size = 3, shape = 2,
+             aes(color = `year`, alpha = Signif)) +
+  geom_hline(yintercept = 0, color = "red") + 
+  scale_alpha_manual(values = c(0.2, 0.8)) + 
+  scale_color_gradientn(colors = viridis::viridis(10)) + 
+  ggh4x::facet_wrap2(. ~ Trait, scales = "free_y") + 
+  theme_bw()
+
+p_cws_lat_slopes = cws_lat_slopes %>% 
+  mutate(Signif = ifelse(pValue >= 0.05, "No", "Yes")) %>% 
+  ggplot(aes(x = Model, y = Slope)) + 
+  geom_boxplot() +
+  geom_point(position = position_jitter(0.1), 
+             size = 3, shape = 2,
+             aes(color = `year`, alpha = Signif)) +
+  geom_hline(yintercept = 0, color = "red") + 
+  scale_alpha_manual(values = c(0.2, 0.8)) + 
+  scale_color_gradientn(colors = viridis::viridis(10)) + 
+  ggh4x::facet_wrap2(. ~ Trait, scales = "free_y") + 
+  theme_bw()
+
+p_cwm_lat_slopes
+p_cwv_lat_slopes
+p_cws_lat_slopes
+
+```
+
+- Visualization, Weighted Models
+
+```{r}
+
+p_cwm_lat_slopes = cwm_lat_slopes %>% 
+  mutate(Signif = ifelse(pValue >= 0.05, "No", "Yes")) %>% 
+  filter(Model == "weighted") %>% 
+  ggplot(aes(x = Model, y = Slope)) + 
+  geom_boxplot() +
+  geom_point(position = position_jitter(0.1), 
+             size = 3, shape = 2,
+             aes(color = `year`, alpha = Signif)) +
+  geom_hline(yintercept = 0, color = "red") + 
+  xlab("Trait") + 
+  scale_alpha_manual(name = "p<0.05", values = c(0.2, 0.8)) + 
+  scale_color_gradientn(name = "Year", colors = viridis::viridis(10)) + 
+  ggh4x::facet_wrap2(. ~ Trait, scales = "free_y", 
+                     labeller = as_labeller(c(`Beak.Length_Culmen` = "Beak Length (Culmen)", 
+                                              `Beak.Length_Nares` = "Beak Length (Nares)",
+                                              `Beak.Width` = "Beak Width", 
+                                              `Beak.Depth` = "Beak Depth",
+                                              `Tarsus.Length` = "Tarsus Length",
+                                              `Wing.Length` = "Wing Length",
+                                              `Kipps.Distance` = "Kipp's Distance", 
+                                              `Hand.Wing.Index` = "Hand-Wing Index", 
+                                              `litter_or_clutch_size_n` = "Clutch Size", 
+                                              `Mass` = "Mass", 
+                                              `Secondary1` = "Secondary Length",
+                                              `Tail.Length` = "Tail Length", 
+                                              `PC1_beak` = "Beak PC1", 
+                                              `PC2_beak` = "Beak PC2", 
+                                              `PC1_wing` = "Wing PC1", 
+                                              `PC2_wing` = "Wing PC2", 
+                                              `relative_wing_length` = "Relative Wing Length", 
+                                              `GenLength` = "Generation Length"
+                                               ))) + 
+  theme_bw() + 
+  theme(axis.text.x = element_blank(), 
+        axis.text.y = element_text(size = 10),
+        axis.title = element_text(size = 12), 
+        strip.text = element_text(size = 10))
+
+p_cwv_lat_slopes = cwv_lat_slopes %>% 
+  mutate(Signif = ifelse(pValue >= 0.05, "No", "Yes")) %>% 
+  ggplot(aes(x = Model, y = Slope)) + 
+  geom_boxplot() +
+  geom_point(position = position_jitter(0.1), 
+             size = 3, shape = 2,
+             aes(color = `year`, alpha = Signif)) +
+  geom_hline(yintercept = 0, color = "red") + 
+  scale_alpha_manual(values = c(0.2, 0.8)) + 
+  scale_color_gradientn(colors = viridis::viridis(10)) + 
+  ggh4x::facet_wrap2(. ~ Trait, scales = "free_y") + 
+  theme_bw()
+
+p_cws_lat_slopes = cws_lat_slopes %>% 
+  mutate(Signif = ifelse(pValue >= 0.05, "No", "Yes")) %>% 
+  ggplot(aes(x = Model, y = Slope)) + 
+  geom_boxplot() +
+  geom_point(position = position_jitter(0.1), 
+             size = 3, shape = 2,
+             aes(color = `year`, alpha = Signif)) +
+  geom_hline(yintercept = 0, color = "red") + 
+  scale_alpha_manual(values = c(0.2, 0.8)) + 
+  scale_color_gradientn(colors = viridis::viridis(10)) + 
+  ggh4x::facet_wrap2(. ~ Trait, scales = "free_y") + 
+  theme_bw()
+
+p_cwm_lat_slopes
+p_cwv_lat_slopes
+p_cws_lat_slopes
+
+```
+
+- Save Figures
+
+```{r}
+
+# Figure for presentation
+
+p_exp_lm = ggplot(cwm_mean, aes(x = lat, y = Wing.Length)) + 
+  geom_jitter(alpha = 0.2) + 
+  geom_smooth(aes(weight = Community_Abundance), 
+              method = "lm") + 
+  xlab("Latitude") + 
+  ylab("Wing Length") +
+  theme_bw() +
+  theme(axis.text.x = element_text(size = 10), 
+        axis.text.y = element_text(size = 10),
+        axis.title = element_text(size = 12))
+
+p_exp_lm
+
+ggsave("CWM_Figures/Slopes/LM_Example.pdf", p_exp_lm, device = "pdf", 
+       width = 2400, height = 1200, unit = "px")
+
+```
+
+```{r}
+
+ggsave("CWM_Figures/Slopes/CWM_Lat_Pass.pdf", p_cwm_lat_slopes, device = "pdf", width = 2400, height = 2400, unit = "px")
+# ggsave("CWM_Figures/Slopes/CWM_Lat_All.pdf", p_cwm_lat_slopes, device = "pdf", width = 4800, height = 3600, unit = "px")
+
+ggsave("CWM_Figures/Slopes/CWV_Lat.pdf", p_cwv_lat_slopes, device = "pdf", width = 3200, height = 2400, unit = "px")
+ggsave("CWM_Figures/Slopes/CWS_Lat.pdf", p_cws_lat_slopes, device = "pdf", width = 3200, height = 2400, unit = "px")
+
+```
+
+## CW Metrics ~ Year
+
+- Calculation
+
+```{r}
+
+cwm_year_slopes = foreach(t = traits, 
+                           .combine = rbind, .packages = "tidyverse") %dopar% {
+  
+  slope_list = list()
+  
+  formula = as.formula(paste(t, "~", "year"))
+  
+  for (g in unique(CWM_Env$Region)) {
+    
+    m_w = lm(formula = formula, 
+             weights = Community_Abundance, 
+             data = cwm_mean %>% 
+               filter(Region == g))
+    m_e = lm(formula = formula, 
+             data = cwm_mean %>% 
+               filter(Region == g))
+    
+    slope = tibble(Model = c("weighted", "unweighted"), 
+                   pValue = c(summary(m_w)$coefficients[2, 4], summary(m_e)$coefficients[2, 4]),
+                   Slope = c(summary(m_w)$coefficients[2, 1], summary(m_e)$coefficients[2, 1]), 
+                   Region = g)
+    
+    slope_list[[g]] = slope
+    
+  }
+  
+  slopes = bind_rows(slope_list) %>% 
+    mutate(Trait = t)
+  slopes
+                             
+}
+
+cwv_year_slopes = foreach(t = traits, 
+                     .combine = rbind, .packages = "tidyverse") %dopar% {
+                       
+  slope_list = list()
+  
+  formula = as.formula(paste(t, "~", "year"))
+  
+  for (g in unique(CWM_Env$Region)) {
+    
+    m_w = lm(formula = formula, 
+             weights = Community_Abundance, 
+             data = cwv_mean %>% 
+               filter(Region == g))
+    m_e = lm(formula = formula, 
+             data = cwv_mean %>% 
+               filter(Region == g))
+    
+    slope = tibble(Model = c("weighted", "unweighted"), 
+                   pValue = c(summary(m_w)$coefficients[2, 4], summary(m_e)$coefficients[2, 4]),
+                   Slope = c(summary(m_w)$coefficients[2, 1], summary(m_e)$coefficients[2, 1]), 
+                   Region = g)
+    
+    slope_list[[g]] = slope
+    
+  }
+  
+  slopes = bind_rows(slope_list) %>% 
+    mutate(Trait = t)
+  slopes
+  
+}
+
+cws_year_slopes = foreach(t = traits, 
+                     .combine = rbind, .packages = "tidyverse") %dopar% {
+                       
+  cat(t)
+
+  slope_list = list()
+  
+  formula = as.formula(paste(t, "~", "year"))
+  
+  for (g in unique(CWM_Env$Region)) {
+    
+    m_w = lm(formula = formula, 
+             weights = Community_Abundance, 
+             data = cws_mean %>% 
+               filter(Region == g))
+    m_e = lm(formula = formula, 
+             data = cws_mean %>% 
+               filter(Region == g))
+    
+    slope = tibble(Model = c("weighted", "unweighted"), 
+                   pValue = c(summary(m_w)$coefficients[2, 4], summary(m_e)$coefficients[2, 4]),
+                   Slope = c(summary(m_w)$coefficients[2, 1], summary(m_e)$coefficients[2, 1]), 
+                   Region = g)
+    
+    slope_list[[g]] = slope
+    
+  }  
+  
+  slopes = bind_rows(slope_list) %>% 
+    mutate(Trait = t)
+  slopes
+  
+}
+
+```
+
+- Visualization
+
+```{r}
+
+p_cwm_year_slopes = cwm_year_slopes %>% 
+  mutate(Signif = ifelse(pValue >= 0.05, "No", "Yes")) %>%
+  separate_wider_delim(Region, delim = "_", names = c("lat", "long")) %>% 
+  mutate(lat = as.numeric(lat), 
+         long = as.numeric(long)) %>% 
+  filter(lat <= 55) %>% 
+  ggplot(aes(x = Model, y = Slope)) + 
+  geom_boxplot() +
+  geom_point(position = position_jitter(0.2), 
+             size = 1, shape = 2,
+             aes(color = lat, alpha = Signif)) +
+  geom_hline(yintercept = 0, color = "red") + 
+  scale_alpha_manual(values = c(0.2, 0.8)) + 
+  scale_color_gradientn(colors = viridis::viridis(10)) + 
+  ggh4x::facet_wrap2(. ~ Trait, scales = "free_y") + 
+  theme_bw()
+
+p_cwv_year_slopes = cwv_year_slopes %>% 
+  mutate(Signif = ifelse(pValue >= 0.05, "No", "Yes")) %>% 
+  separate_wider_delim(Region, delim = "_", names = c("lat", "long")) %>% 
+  mutate(lat = as.numeric(lat), 
+         long = as.numeric(long)) %>% 
+  filter(lat <= 55) %>% 
+  ggplot(aes(x = Model, y = Slope)) + 
+  geom_boxplot() +
+  geom_point(position = position_jitter(0.2), 
+             size = 1, shape = 2,
+             aes(color = lat, alpha = Signif)) +
+  geom_hline(yintercept = 0, color = "red") + 
+  scale_alpha_manual(values = c(0.2, 0.8)) + 
+  scale_color_gradientn(colors = viridis::viridis(10)) + 
+  ggh4x::facet_wrap2(. ~ Trait, scales = "free_y") + 
+  theme_bw()
+
+p_cws_year_slopes = cws_year_slopes %>% 
+  mutate(Signif = ifelse(pValue >= 0.05, "No", "Yes")) %>% 
+  separate_wider_delim(Region, delim = "_", names = c("lat", "long")) %>% 
+  mutate(lat = as.numeric(lat), 
+         long = as.numeric(long)) %>% 
+  filter(lat <= 55) %>% 
+  ggplot(aes(x = Model, y = Slope)) + 
+  geom_boxplot() +
+  geom_point(position = position_jitter(0.2), 
+             size = 1, shape = 2,
+             aes(color = lat, alpha = Signif)) +
+  geom_hline(yintercept = 0, color = "red") + 
+  scale_alpha_manual(values = c(0.2, 0.8)) + 
+  scale_color_gradientn(colors = viridis::viridis(10)) + 
+  ggh4x::facet_wrap2(. ~ Trait, scales = "free_y") + 
+  theme_bw()
+
+p_cwm_year_slopes
+p_cwv_year_slopes
+p_cws_year_slopes
+
+```
+
+- Save Figures
+
+```{r}
+
+ggsave("CWM_Figures/Slopes/CWM_Year.pdf", p_cwm_year_slopes, device = "pdf", width = 3200, height = 2400, unit = "px")
+ggsave("CWM_Figures/Slopes/CWV_Year.pdf", p_cwv_year_slopes, device = "pdf", width = 3200, height = 2400, unit = "px")
+ggsave("CWM_Figures/Slopes/CWS_Year.pdf", p_cws_year_slopes, device = "pdf", width = 3200, height = 2400, unit = "px")
+
+```
+
+## CW Metrics ~ Year, East vs. West
+
+- East
+
+```{r}
+
+p_cwm_year_slopes = cwm_year_slopes %>% 
+  mutate(Signif = ifelse(pValue >= 0.05, "No", "Yes")) %>%
+  separate_wider_delim(Region, delim = "_", names = c("lat", "long")) %>% 
+  mutate(lat = as.numeric(lat), 
+         long = as.numeric(long)) %>% 
+  filter(lat <= 55, long >= -100) %>% 
+  ggplot(aes(x = Model, y = Slope)) + 
+  geom_boxplot() +
+  geom_point(position = position_jitter(0.2), 
+             size = 1, shape = 2,
+             aes(color = lat, alpha = Signif)) +
+  geom_hline(yintercept = 0, color = "red") + 
+  scale_alpha_manual(values = c(0.2, 0.8)) + 
+  scale_color_gradientn(colors = viridis::viridis(10)) + 
+  ggh4x::facet_wrap2(. ~ Trait, scales = "free_y") + 
+  theme_bw()
+
+p_cwv_year_slopes = cwv_year_slopes %>% 
+  mutate(Signif = ifelse(pValue >= 0.05, "No", "Yes")) %>% 
+  separate_wider_delim(Region, delim = "_", names = c("lat", "long")) %>% 
+  mutate(lat = as.numeric(lat), 
+         long = as.numeric(long)) %>% 
+  filter(lat <= 55, long >= -100) %>% 
+  ggplot(aes(x = Model, y = Slope)) + 
+  geom_boxplot() +
+  geom_point(position = position_jitter(0.2), 
+             size = 1, shape = 2,
+             aes(color = lat, alpha = Signif)) +
+  geom_hline(yintercept = 0, color = "red") + 
+  scale_alpha_manual(values = c(0.2, 0.8)) + 
+  scale_color_gradientn(colors = viridis::viridis(10)) + 
+  ggh4x::facet_wrap2(. ~ Trait, scales = "free_y") + 
+  theme_bw()
+
+p_cws_year_slopes = cws_year_slopes %>% 
+  mutate(Signif = ifelse(pValue >= 0.05, "No", "Yes")) %>% 
+  separate_wider_delim(Region, delim = "_", names = c("lat", "long")) %>% 
+  mutate(lat = as.numeric(lat), 
+         long = as.numeric(long)) %>% 
+  filter(lat <= 55, long >= -100) %>% 
+  ggplot(aes(x = Model, y = Slope)) + 
+  geom_boxplot() +
+  geom_point(position = position_jitter(0.2), 
+             size = 1, shape = 2,
+             aes(color = lat, alpha = Signif)) +
+  geom_hline(yintercept = 0, color = "red") + 
+  scale_alpha_manual(values = c(0.2, 0.8)) + 
+  scale_color_gradientn(colors = viridis::viridis(10)) + 
+  ggh4x::facet_wrap2(. ~ Trait, scales = "free_y") + 
+  theme_bw()
+
+p_cwm_year_slopes
+p_cwv_year_slopes
+p_cws_year_slopes
+
+ggsave("CWM_Figures/Slopes/CWM_Year_East.pdf", p_cwm_year_slopes, device = "pdf", width = 3200, height = 2400, unit = "px")
+ggsave("CWM_Figures/Slopes/CWV_Year_East.pdf", p_cwv_year_slopes, device = "pdf", width = 3200, height = 2400, unit = "px")
+ggsave("CWM_Figures/Slopes/CWS_Year_East.pdf", p_cws_year_slopes, device = "pdf", width = 3200, height = 2400, unit = "px")
+
+```
+
+- West
+
+```{r}
+
+p_cwm_year_slopes = cwm_year_slopes %>% 
+  mutate(Signif = ifelse(pValue >= 0.05, "No", "Yes")) %>%
+  separate_wider_delim(Region, delim = "_", names = c("lat", "long")) %>% 
+  mutate(lat = as.numeric(lat), 
+         long = as.numeric(long)) %>% 
+  filter(lat <= 55, long <= -100) %>% 
+  ggplot(aes(x = Model, y = Slope)) + 
+  geom_boxplot() +
+  geom_point(position = position_jitter(0.2), 
+             size = 1, shape = 2,
+             aes(color = lat, alpha = Signif)) +
+  geom_hline(yintercept = 0, color = "red") + 
+  scale_alpha_manual(values = c(0.2, 0.8)) + 
+  ggh4x::facet_wrap2(. ~ Trait, scales = "free_y") + 
+  scale_color_gradientn(colors = viridis::viridis(10)) + 
+  theme_bw()
+
+p_cwv_year_slopes = cwv_year_slopes %>% 
+  mutate(Signif = ifelse(pValue >= 0.05, "No", "Yes")) %>% 
+  separate_wider_delim(Region, delim = "_", names = c("lat", "long")) %>% 
+  mutate(lat = as.numeric(lat), 
+         long = as.numeric(long)) %>% 
+  filter(lat <= 55, long <= -100) %>% 
+  ggplot(aes(x = Model, y = Slope)) + 
+  geom_boxplot() +
+  geom_point(position = position_jitter(0.2), 
+             size = 1, shape = 2,
+             aes(color = lat, alpha = Signif)) +
+  geom_hline(yintercept = 0, color = "red") + 
+  scale_alpha_manual(values = c(0.2, 0.8)) + 
+  scale_color_gradientn(colors = viridis::viridis(10)) + 
+  ggh4x::facet_wrap2(. ~ Trait, scales = "free_y") + 
+  theme_bw()
+
+p_cws_year_slopes = cws_year_slopes %>% 
+  mutate(Signif = ifelse(pValue >= 0.05, "No", "Yes")) %>% 
+  separate_wider_delim(Region, delim = "_", names = c("lat", "long")) %>% 
+  mutate(lat = as.numeric(lat), 
+         long = as.numeric(long)) %>% 
+  filter(lat <= 55, long <= -100) %>% 
+  ggplot(aes(x = Model, y = Slope)) + 
+  geom_boxplot() +
+  geom_point(position = position_jitter(0.2), 
+             size = 1, shape = 2,
+             aes(color = lat, alpha = Signif)) +
+  geom_hline(yintercept = 0, color = "red") + 
+  scale_alpha_manual(values = c(0.2, 0.8)) + 
+  scale_color_gradientn(colors = viridis::viridis(10)) + 
+  ggh4x::facet_wrap2(. ~ Trait, scales = "free_y") + 
+  theme_bw()
+
+p_cwm_year_slopes
+p_cwv_year_slopes
+p_cws_year_slopes
+
+ggsave("CWM_Figures/Slopes/CWM_Year_West.pdf", p_cwm_year_slopes, device = "pdf", width = 3200, height = 2400, unit = "px")
+ggsave("CWM_Figures/Slopes/CWV_Year_West.pdf", p_cwv_year_slopes, device = "pdf", width = 3200, height = 2400, unit = "px")
+ggsave("CWM_Figures/Slopes/CWS_Year_West.pdf", p_cws_year_slopes, device = "pdf", width = 3200, height = 2400, unit = "px")
+
+```
+
+## CW Metrics ~ Precip
+
+### Annual Precipitation (BIO12)
+
+- Calculation
+
+```{r}
+
+cwm_apr_slopes = foreach(t = traits, 
+                           .combine = rbind, .packages = "tidyverse") %dopar% {
+  
+  slope_list = list()
+  
+  formula = as.formula(paste(t, "~", "bio12"))
+  
+  for (y in unique(CWM_Env$year)) {
+    
+    m_w = lm(formula = formula, 
+             weights = Community_Abundance, 
+             data = cwm_mean %>% 
+               filter(year == y))
+    m_e = lm(formula = formula, 
+             data = cwm_mean %>% 
+               filter(year == y))
+    
+    slope = tibble(Model = c("weighted", "unweighted"), 
+                   pValue = c(summary(m_w)$coefficients[2, 4], summary(m_e)$coefficients[2, 4]),
+                   Slope = c(summary(m_w)$coefficients[2, 1], summary(m_e)$coefficients[2, 1]), 
+                   year = y)
+    
+    slope_list[[y]] = slope
+    
+  }
+  
+  slopes = bind_rows(slope_list) %>% 
+    mutate(Trait = t)
+  slopes
+                             
+}
+
+cwv_apr_slopes = foreach(t = traits, 
+                     .combine = rbind, .packages = "tidyverse") %dopar% {
+                       
+  slope_list = list()
+  
+  formula = as.formula(paste(t, "~", "bio12"))
+  
+  for (y in unique(CWM_Env$year)) {
+    
+    m_w = lm(formula = formula, 
+             weights = Community_Abundance, 
+             data = cwv_mean %>% 
+               filter(year == y))
+    m_e = lm(formula = formula, 
+             data = cwv_mean %>% 
+               filter(year == y))
+    
+    slope = tibble(Model = c("weighted", "unweighted"), 
+                   pValue = c(summary(m_w)$coefficients[2, 4], summary(m_e)$coefficients[2, 4]),
+                   Slope = c(summary(m_w)$coefficients[2, 1], summary(m_e)$coefficients[2, 1]), 
+                   year = y)
+    
+    slope_list[[y]] = slope
+    
+  }
+  
+  slopes = bind_rows(slope_list) %>% 
+    mutate(Trait = t)
+  slopes
+  
+}
+
+cws_apr_slopes = foreach(t = traits, 
+                         .combine = rbind, .packages = "tidyverse") %dopar% {
+                           
+  slope_list = list()
+  
+  formula = as.formula(paste(t, "~", "bio12"))
+  
+  for (y in unique(CWM_Env$year)) {
+    
+    m_w = lm(formula = formula, 
+             weights = Community_Abundance, 
+             data = cws_mean %>% 
+               filter(year == y))
+    m_e = lm(formula = formula, 
+             data = cws_mean %>% 
+               filter(year == y))
+    
+    slope = tibble(Model = c("weighted", "unweighted"), 
+                   pValue = c(summary(m_w)$coefficients[2, 4], summary(m_e)$coefficients[2, 4]),
+                   Slope = c(summary(m_w)$coefficients[2, 1], summary(m_e)$coefficients[2, 1]), 
+                   year = y)
+    
+    slope_list[[y]] = slope
+    
+  }
+  
+  slopes = bind_rows(slope_list) %>% 
+    mutate(Trait = t)
+  slopes
+  
+}
+
+```
+
+- Visualization
+
+```{r}
+
+p_cwm_apr_slopes = cwm_apr_slopes %>% 
+  mutate(Signif = ifelse(pValue >= 0.05, "No", "Yes")) %>% 
+  ggplot(aes(x = Model, y = Slope)) + 
+  geom_boxplot() +
+  geom_point(position = position_jitter(0.1), 
+             size = 3, shape = 2,
+             aes(color = `year`, alpha = Signif)) +
+  geom_hline(yintercept = 0, color = "red") + 
+  scale_alpha_manual(values = c(0.2, 0.8)) + 
+  scale_color_gradientn(colors = viridis::viridis(10)) + 
+  ggh4x::facet_wrap2(. ~ Trait, scales = "free_y") + 
+  theme_bw()
+
+p_cwv_apr_slopes = cwv_apr_slopes %>% 
+  mutate(Signif = ifelse(pValue >= 0.05, "No", "Yes")) %>% 
+  ggplot(aes(x = Model, y = Slope)) + 
+  geom_boxplot() +
+  geom_point(position = position_jitter(0.1), 
+             size = 3, shape = 2,
+             aes(color = `year`, alpha = Signif)) +
+  geom_hline(yintercept = 0, color = "red") + 
+  scale_alpha_manual(values = c(0.2, 0.8)) + 
+  scale_color_gradientn(colors = viridis::viridis(10)) + 
+  ggh4x::facet_wrap2(. ~ Trait, scales = "free_y") + 
+  theme_bw()
+
+p_cws_apr_slopes = cws_apr_slopes %>% 
+  mutate(Signif = ifelse(pValue >= 0.05, "No", "Yes")) %>% 
+  ggplot(aes(x = Model, y = Slope)) + 
+  geom_boxplot() +
+  geom_point(position = position_jitter(0.1), 
+             size = 3, shape = 2,
+             aes(color = `year`, alpha = Signif)) +
+  geom_hline(yintercept = 0, color = "red") + 
+  scale_alpha_manual(values = c(0.2, 0.8)) + 
+  scale_color_gradientn(colors = viridis::viridis(10)) + 
+  ggh4x::facet_wrap2(. ~ Trait, scales = "free_y") + 
+  theme_bw()
+
+p_cwm_apr_slopes
+p_cwv_apr_slopes
+p_cws_apr_slopes
+
+```
+
+- Save Figures
+
+```{r}
+
+ggsave("CWM_Figures/Slopes/CWM_Pre_Annual.pdf", p_cwm_apr_slopes, device = "pdf", width = 3200, height = 2400, unit = "px")
+ggsave("CWM_Figures/Slopes/CWV_Pre_Annual.pdf", p_cwv_apr_slopes, device = "pdf", width = 3200, height = 2400, unit = "px")
+ggsave("CWM_Figures/Slopes/CWS_Pre_Annual.pdf", p_cws_apr_slopes, device = "pdf", width = 3200, height = 2400, unit = "px")
+
+```
+
+### Precipitation, Warmest Quarter (BIO18)
+
+- Calculation
+
+```{r}
+
+cwm_prw_slopes = foreach(t = traits, 
+                           .combine = rbind, .packages = "tidyverse") %dopar% {
+  
+  slope_list = list()
+  
+  formula = as.formula(paste(t, "~", "bio18"))
+  
+  for (y in unique(CWM_Env$year)) {
+    
+    m_w = lm(formula = formula, 
+             weights = Community_Abundance, 
+             data = cwm_mean %>% 
+               filter(year == y))
+    m_e = lm(formula = formula, 
+             data = cwm_mean %>% 
+               filter(year == y))
+    
+    slope = tibble(Model = c("weighted", "unweighted"), 
+                   pValue = c(summary(m_w)$coefficients[2, 4], summary(m_e)$coefficients[2, 4]),
+                   Slope = c(summary(m_w)$coefficients[2, 1], summary(m_e)$coefficients[2, 1]), 
+                   year = y)
+    
+    slope_list[[y]] = slope
+    
+  }
+  
+  slopes = bind_rows(slope_list) %>% 
+    mutate(Trait = t)
+  slopes
+                             
+}
+
+cwv_prw_slopes = foreach(t = traits, 
+                     .combine = rbind, .packages = "tidyverse") %dopar% {
+                       
+  slope_list = list()
+  
+  formula = as.formula(paste(t, "~", "bio18"))
+  
+  for (y in unique(CWM_Env$year)) {
+    
+    m_w = lm(formula = formula, 
+             weights = Community_Abundance, 
+             data = cwv_mean %>% 
+               filter(year == y))
+    m_e = lm(formula = formula, 
+             data = cwv_mean %>% 
+               filter(year == y))
+    
+    slope = tibble(Model = c("weighted", "unweighted"), 
+                   pValue = c(summary(m_w)$coefficients[2, 4], summary(m_e)$coefficients[2, 4]),
+                   Slope = c(summary(m_w)$coefficients[2, 1], summary(m_e)$coefficients[2, 1]), 
+                   year = y)
+    
+    slope_list[[y]] = slope
+    
+  }
+  
+  slopes = bind_rows(slope_list) %>% 
+    mutate(Trait = t)
+  slopes
+  
+}
+
+cws_prw_slopes = foreach(t = traits, 
+                         .combine = rbind, .packages = "tidyverse") %dopar% {
+                           
+  slope_list = list()
+  
+  formula = as.formula(paste(t, "~", "bio18"))
+  
+  for (y in unique(CWM_Env$year)) {
+    
+    m_w = lm(formula = formula, 
+             weights = Community_Abundance, 
+             data = cws_mean %>% 
+               filter(year == y))
+    m_e = lm(formula = formula, 
+             data = cws_mean %>% 
+               filter(year == y))
+    
+    slope = tibble(Model = c("weighted", "unweighted"), 
+                   pValue = c(summary(m_w)$coefficients[2, 4], summary(m_e)$coefficients[2, 4]),
+                   Slope = c(summary(m_w)$coefficients[2, 1], summary(m_e)$coefficients[2, 1]), 
+                   year = y)
+    
+    slope_list[[y]] = slope
+    
+  }
+  
+  slopes = bind_rows(slope_list) %>% 
+    mutate(Trait = t)
+  slopes
+  
+}
+
+```
+
+- Visualization
+
+```{r}
+
+p_cwm_prw_slopes = cwm_prw_slopes %>% 
+  mutate(Signif = ifelse(pValue >= 0.05, "No", "Yes")) %>% 
+  filter(Model == "weighted") %>% 
+  ggplot(aes(x = Model, y = Slope)) + 
+  geom_boxplot() +
+  geom_point(position = position_jitter(0.1), 
+             size = 3, shape = 2,
+             aes(color = `year`, alpha = Signif)) +
+  geom_hline(yintercept = 0, color = "red") + 
+  xlab("Trait") + 
+  scale_alpha_manual(name = "p<0.05", values = c(0.2, 0.8)) + 
+  scale_color_gradientn(name = "Year", colors = viridis::viridis(10)) + 
+  ggh4x::facet_wrap2(. ~ Trait, scales = "free_y", 
+                     labeller = as_labeller(c(`Beak.Length_Culmen` = "Beak Length (Culmen)", 
+                                              `Beak.Length_Nares` = "Beak Length (Nares)",
+                                              `Beak.Width` = "Beak Width", 
+                                              `Beak.Depth` = "Beak Depth",
+                                              `Tarsus.Length` = "Tarsus Length",
+                                              `Wing.Length` = "Wing Length",
+                                              `Kipps.Distance` = "Kipp's Distance", 
+                                              `Hand.Wing.Index` = "Hand-Wing Index", 
+                                              `litter_or_clutch_size_n` = "Clutch Size", 
+                                              `Mass` = "Mass", 
+                                              `Secondary1` = "Secondary Length",
+                                              `Tail.Length` = "Tail Length", 
+                                              `PC1_beak` = "Beak PC1", 
+                                              `PC2_beak` = "Beak PC2", 
+                                              `PC1_wing` = "Wing PC1", 
+                                              `PC2_wing` = "Wing PC2", 
+                                              `relative_wing_length` = "Relative Wing Length", 
+                                              `GenLength` = "Generation Length"
+                                               ))) + 
+  theme_bw() + 
+  theme(axis.text.x = element_blank(), 
+        axis.text.y = element_text(size = 10),
+        axis.title = element_text(size = 12), 
+        strip.text = element_text(size = 10))
+
+p_cwv_prw_slopes = cwv_prw_slopes %>% 
+  mutate(Signif = ifelse(pValue >= 0.05, "No", "Yes")) %>% 
+  ggplot(aes(x = Model, y = Slope)) + 
+  geom_boxplot() +
+  geom_point(position = position_jitter(0.1), 
+             size = 3, shape = 2,
+             aes(color = `year`, alpha = Signif)) +
+  geom_hline(yintercept = 0, color = "red") + 
+  scale_alpha_manual(values = c(0.2, 0.8)) + 
+  scale_color_gradientn(colors = viridis::viridis(10)) + 
+  ggh4x::facet_wrap2(. ~ Trait, scales = "free_y") + 
+  theme_bw()
+
+p_cws_prw_slopes = cws_prw_slopes %>% 
+  mutate(Signif = ifelse(pValue >= 0.05, "No", "Yes")) %>% 
+  ggplot(aes(x = Model, y = Slope)) + 
+  geom_boxplot() +
+  geom_point(position = position_jitter(0.1), 
+             size = 3, shape = 2,
+             aes(color = `year`, alpha = Signif)) +
+  geom_hline(yintercept = 0, color = "red") + 
+  scale_alpha_manual(values = c(0.2, 0.8)) + 
+  scale_color_gradientn(colors = viridis::viridis(10)) + 
+  ggh4x::facet_wrap2(. ~ Trait, scales = "free_y") + 
+  theme_bw()
+
+p_cwm_prw_slopes
+p_cwv_prw_slopes
+p_cws_prw_slopes
+
+```
+
+- Save Figures
+
+```{r}
+
+ggsave("CWM_Figures/Slopes/CWM_Pre_Warm_Pass.pdf", p_cwm_prw_slopes, device = "pdf", width = 2400, height = 2400, unit = "px")
+# ggsave("CWM_Figures/Slopes/CWM_Pre_Warm_All.pdf", p_cwm_prw_slopes, device = "pdf", width = 4800, height = 3600, unit = "px")
+
+ggsave("CWM_Figures/Slopes/CWV_Pre_Warm.pdf", p_cwv_prw_slopes, device = "pdf", width = 3200, height = 2400, unit = "px")
+ggsave("CWM_Figures/Slopes/CWS_Pre_Warm.pdf", p_cws_prw_slopes, device = "pdf", width = 3200, height = 2400, unit = "px")
+
+```
+
+## CW Metrics ~ Temperature
+
+### Mean Annual Temperature
+
+- Calculation
+
+```{r}
+
+cwm_mat_slopes = foreach(t = traits, 
+                           .combine = rbind, .packages = "tidyverse") %dopar% {
+  
+  slope_list = list()
+  
+  formula = as.formula(paste(t, "~", "bio1"))
+  
+  for (y in unique(CWM_Env$year)) {
+    
+    m_w = lm(formula = formula, 
+             weights = Community_Abundance, 
+             data = cwm_mean %>% 
+               filter(year == y))
+    m_e = lm(formula = formula, 
+             data = cwm_mean %>% 
+               filter(year == y))
+    
+    slope = tibble(Model = c("weighted", "unweighted"), 
+                   pValue = c(summary(m_w)$coefficients[2, 4], summary(m_e)$coefficients[2, 4]),
+                   Slope = c(summary(m_w)$coefficients[2, 1], summary(m_e)$coefficients[2, 1]), 
+                   year = y)
+    
+    slope_list[[y]] = slope
+    
+  }
+  
+  slopes = bind_rows(slope_list) %>% 
+    mutate(Trait = t)
+  slopes
+                             
+}
+
+cwv_mat_slopes = foreach(t = traits, 
+                     .combine = rbind, .packages = "tidyverse") %dopar% {
+                       
+  slope_list = list()
+  
+  formula = as.formula(paste(t, "~", "bio1"))
+  
+  for (y in unique(CWM_Env$year)) {
+    
+    m_w = lm(formula = formula, 
+             weights = Community_Abundance, 
+             data = cwv_mean %>% 
+               filter(year == y))
+    m_e = lm(formula = formula, 
+             data = cwv_mean %>% 
+               filter(year == y))
+    
+    slope = tibble(Model = c("weighted", "unweighted"), 
+                   pValue = c(summary(m_w)$coefficients[2, 4], summary(m_e)$coefficients[2, 4]),
+                   Slope = c(summary(m_w)$coefficients[2, 1], summary(m_e)$coefficients[2, 1]), 
+                   year = y)
+    
+    slope_list[[y]] = slope
+    
+  }
+  
+  slopes = bind_rows(slope_list) %>% 
+    mutate(Trait = t)
+  slopes
+  
+}
+
+cws_mat_slopes = foreach(t = traits, 
+                         .combine = rbind, .packages = "tidyverse") %dopar% {
+                           
+  slope_list = list()
+  
+  formula = as.formula(paste(t, "~", "bio1"))
+  
+  for (y in unique(CWM_Env$year)) {
+    
+    m_w = lm(formula = formula, 
+             weights = Community_Abundance, 
+             data = cws_mean %>% 
+               filter(year == y))
+    m_e = lm(formula = formula, 
+             data = cws_mean %>% 
+               filter(year == y))
+    
+    slope = tibble(Model = c("weighted", "unweighted"), 
+                   pValue = c(summary(m_w)$coefficients[2, 4], summary(m_e)$coefficients[2, 4]),
+                   Slope = c(summary(m_w)$coefficients[2, 1], summary(m_e)$coefficients[2, 1]), 
+                   year = y)
+    
+    slope_list[[y]] = slope
+    
+  }
+  
+  slopes = bind_rows(slope_list) %>% 
+    mutate(Trait = t)
+  slopes
+  
+}
+
+```
+
+- Visualization
+
+```{r}
+
+p_cwm_mat_slopes = cwm_mat_slopes %>% 
+  mutate(Signif = ifelse(pValue >= 0.05, "No", "Yes")) %>% 
+  ggplot(aes(x = Model, y = Slope)) + 
+  geom_boxplot() +
+  geom_point(position = position_jitter(0.1), 
+             size = 3, shape = 2,
+             aes(color = `year`, alpha = Signif)) +
+  geom_hline(yintercept = 0, color = "red") + 
+  scale_alpha_manual(values = c(0.2, 0.8)) + 
+  scale_color_gradientn(colors = viridis::viridis(10)) + 
+  ggh4x::facet_wrap2(. ~ Trait, scales = "free_y") + 
+  theme_bw()
+
+p_cwv_mat_slopes = cwv_mat_slopes %>% 
+  mutate(Signif = ifelse(pValue >= 0.05, "No", "Yes")) %>% 
+  ggplot(aes(x = Model, y = Slope)) + 
+  geom_boxplot() +
+  geom_point(position = position_jitter(0.1), 
+             size = 3, shape = 2,
+             aes(color = `year`, alpha = Signif)) +
+  geom_hline(yintercept = 0, color = "red") + 
+  scale_alpha_manual(values = c(0.2, 0.8)) + 
+  scale_color_gradientn(colors = viridis::viridis(10)) + 
+  ggh4x::facet_wrap2(. ~ Trait, scales = "free_y") + 
+  theme_bw()
+
+p_cws_mat_slopes = cws_mat_slopes %>% 
+  mutate(Signif = ifelse(pValue >= 0.05, "No", "Yes")) %>% 
+  ggplot(aes(x = Model, y = Slope)) + 
+  geom_boxplot() +
+  geom_point(position = position_jitter(0.1), 
+             size = 3, shape = 2,
+             aes(color = `year`, alpha = Signif)) +
+  geom_hline(yintercept = 0, color = "red") + 
+  scale_alpha_manual(values = c(0.2, 0.8)) + 
+  scale_color_gradientn(colors = viridis::viridis(10)) + 
+  ggh4x::facet_wrap2(. ~ Trait, scales = "free_y") + 
+  theme_bw()
+
+p_cwm_mat_slopes
+p_cwv_mat_slopes
+p_cws_mat_slopes
+
+```
+
+- Save Figures
+
+```{r}
+
+ggsave("CWM_Figures/Slopes/CWM_Temp_Mean.pdf", p_cwm_mat_slopes, device = "pdf", width = 3200, height = 2400, unit = "px")
+ggsave("CWM_Figures/Slopes/CWV_Temp_Mean.pdf", p_cwv_mat_slopes, device = "pdf", width = 3200, height = 2400, unit = "px")
+ggsave("CWM_Figures/Slopes/CWS_Temp_Mean.pdf", p_cws_mat_slopes, device = "pdf", width = 3200, height = 2400, unit = "px")
+
+```
+
+### Mean Temperature, Warmest Quarter (BIO10)
+
+- Calculation
+
+```{r}
+
+cwm_mtw_slopes = foreach(t = traits, 
+                           .combine = rbind, .packages = "tidyverse") %dopar% {
+  
+  slope_list = list()
+  
+  formula = as.formula(paste(t, "~", "bio10"))
+  
+  for (y in unique(CWM_Env$year)) {
+    
+    m_w = lm(formula = formula, 
+             weights = Community_Abundance, 
+             data = cwm_mean %>% 
+               filter(year == y))
+    m_e = lm(formula = formula, 
+             data = cwm_mean %>% 
+               filter(year == y))
+    
+    slope = tibble(Model = c("weighted", "unweighted"), 
+                   pValue = c(summary(m_w)$coefficients[2, 4], summary(m_e)$coefficients[2, 4]),
+                   Slope = c(summary(m_w)$coefficients[2, 1], summary(m_e)$coefficients[2, 1]), 
+                   year = y)
+    
+    slope_list[[y]] = slope
+    
+  }
+  
+  slopes = bind_rows(slope_list) %>% 
+    mutate(Trait = t)
+  slopes
+                             
+}
+
+cwv_mtw_slopes = foreach(t = traits, 
+                     .combine = rbind, .packages = "tidyverse") %dopar% {
+                       
+  slope_list = list()
+  
+  formula = as.formula(paste(t, "~", "bio10"))
+  
+  for (y in unique(CWM_Env$year)) {
+    
+    m_w = lm(formula = formula, 
+             weights = Community_Abundance, 
+             data = cwv_mean %>% 
+               filter(year == y))
+    m_e = lm(formula = formula, 
+             data = cwv_mean %>% 
+               filter(year == y))
+    
+    slope = tibble(Model = c("weighted", "unweighted"), 
+                   pValue = c(summary(m_w)$coefficients[2, 4], summary(m_e)$coefficients[2, 4]),
+                   Slope = c(summary(m_w)$coefficients[2, 1], summary(m_e)$coefficients[2, 1]), 
+                   year = y)
+    
+    slope_list[[y]] = slope
+    
+  }
+  
+  slopes = bind_rows(slope_list) %>% 
+    mutate(Trait = t)
+  slopes
+  
+}
+
+cws_mtw_slopes = foreach(t = traits, 
+                         .combine = rbind, .packages = "tidyverse") %dopar% {
+                           
+  slope_list = list()
+  
+  formula = as.formula(paste(t, "~", "bio10"))
+  
+  for (y in unique(CWM_Env$year)) {
+    
+    m_w = lm(formula = formula, 
+             weights = Community_Abundance, 
+             data = cws_mean %>% 
+               filter(year == y))
+    m_e = lm(formula = formula, 
+             data = cws_mean %>% 
+               filter(year == y))
+    
+    slope = tibble(Model = c("weighted", "unweighted"), 
+                   pValue = c(summary(m_w)$coefficients[2, 4], summary(m_e)$coefficients[2, 4]),
+                   Slope = c(summary(m_w)$coefficients[2, 1], summary(m_e)$coefficients[2, 1]), 
+                   year = y)
+    
+    slope_list[[y]] = slope
+    
+  }
+  
+  slopes = bind_rows(slope_list) %>% 
+    mutate(Trait = t)
+  slopes
+  
+}
+
+```
+
+- Visualization
+
+```{r}
+
+p_cwm_mtw_slopes = cwm_mtw_slopes %>% 
+  mutate(Signif = ifelse(pValue >= 0.05, "No", "Yes")) %>% 
+  filter(Model == "weighted") %>% 
+  ggplot(aes(x = Model, y = Slope)) + 
+  geom_boxplot() +
+  geom_point(position = position_jitter(0.1), 
+             size = 3, shape = 2,
+             aes(color = `year`, alpha = Signif)) +
+  geom_hline(yintercept = 0, color = "red") + 
+  xlab("Trait") + 
+  scale_alpha_manual(name = "p<0.05", values = c(0.2, 0.8)) + 
+  scale_color_gradientn(name = "Year", colors = viridis::viridis(10)) + 
+  ggh4x::facet_wrap2(. ~ Trait, scales = "free_y", 
+                     labeller = as_labeller(c(`Beak.Length_Culmen` = "Beak Length (Culmen)", 
+                                              `Beak.Length_Nares` = "Beak Length (Nares)",
+                                              `Beak.Width` = "Beak Width", 
+                                              `Beak.Depth` = "Beak Depth",
+                                              `Tarsus.Length` = "Tarsus Length",
+                                              `Wing.Length` = "Wing Length",
+                                              `Kipps.Distance` = "Kipp's Distance", 
+                                              `Hand.Wing.Index` = "Hand-Wing Index", 
+                                              `litter_or_clutch_size_n` = "Clutch Size", 
+                                              `Mass` = "Mass", 
+                                              `Secondary1` = "Secondary Length",
+                                              `Tail.Length` = "Tail Length", 
+                                              `PC1_beak` = "Beak PC1", 
+                                              `PC2_beak` = "Beak PC2", 
+                                              `PC1_wing` = "Wing PC1", 
+                                              `PC2_wing` = "Wing PC2", 
+                                              `relative_wing_length` = "Relative Wing Length", 
+                                              `GenLength` = "Generation Length"
+                                               ))) + 
+  theme_bw() + 
+  theme(axis.text.x = element_blank(), 
+        axis.text.y = element_text(size = 10),
+        axis.title = element_text(size = 12), 
+        strip.text = element_text(size = 10))
+
+p_cwv_mtw_slopes = cwv_mtw_slopes %>% 
+  mutate(Signif = ifelse(pValue >= 0.05, "No", "Yes")) %>% 
+  ggplot(aes(x = Model, y = Slope)) + 
+  geom_boxplot() +
+  geom_point(position = position_jitter(0.1), 
+             size = 3, shape = 2,
+             aes(color = `year`, alpha = Signif)) +
+  geom_hline(yintercept = 0, color = "red") + 
+  scale_alpha_manual(values = c(0.2, 0.8)) + 
+  scale_color_gradientn(colors = viridis::viridis(10)) + 
+  ggh4x::facet_wrap2(. ~ Trait, scales = "free_y") + 
+  theme_bw()
+
+p_cws_mtw_slopes = cws_mtw_slopes %>% 
+  mutate(Signif = ifelse(pValue >= 0.05, "No", "Yes")) %>% 
+  ggplot(aes(x = Model, y = Slope)) + 
+  geom_boxplot() +
+  geom_point(position = position_jitter(0.1), 
+             size = 3, shape = 2,
+             aes(color = `year`, alpha = Signif)) +
+  geom_hline(yintercept = 0, color = "red") + 
+  scale_alpha_manual(values = c(0.2, 0.8)) + 
+  scale_color_gradientn(colors = viridis::viridis(10)) + 
+  ggh4x::facet_wrap2(. ~ Trait, scales = "free_y") + 
+  theme_bw()
+
+p_cwm_mtw_slopes
+p_cwv_mtw_slopes
+p_cws_mtw_slopes
+
+```
+
+- Save Figures
+
+```{r}
+
+ggsave("CWM_Figures/Slopes/CWM_Temp_Warm_Pass.pdf", p_cwm_mtw_slopes, device = "pdf", width = 2400, height = 2400, unit = "px")
+# ggsave("CWM_Figures/Slopes/CWM_Temp_Warm_All.pdf", p_cwm_mtw_slopes, device = "pdf", width = 4800, height = 3600, unit = "px")
+
+ggsave("CWM_Figures/Slopes/CWV_Temp_Warm.pdf", p_cwv_mtw_slopes, device = "pdf", width = 3200, height = 2400, unit = "px")
+ggsave("CWM_Figures/Slopes/CWS_Temp_Warm.pdf", p_cws_mtw_slopes, device = "pdf", width = 3200, height = 2400, unit = "px")
+
+```
+
+# Model Fitting
+
+## Explorary Figures
+
+```{r}
+
+# year
+
+ggplot(cwm_mean, aes(x = year, y = bio10)) + 
+  geom_jitter(alpha = 0.3) + 
+  geom_smooth(method = "lm")
+
+ggplot(cwm_mean, aes(x = year, y = bio18)) + 
+  geom_jitter(alpha = 0.3) + 
+  geom_smooth(method = "lm")
+
+# lat
+
+ggplot(cwm_mean, aes(x = lat, y = bio10)) + 
+  geom_jitter(alpha = 0.3) + 
+  geom_smooth(method = "lm")
+
+ggplot(cwm_mean, aes(x = lat, y = bio18)) + 
+  geom_jitter(alpha = 0.3) + 
+  geom_smooth(method = "lm")
+
+# temp ~ precip
+
+ggplot(cwm_mean, aes(x = bio10, y = bio18)) + 
+  geom_jitter(alpha = 0.3) + 
+  geom_smooth(method = "lm")
+
+```
+
+Model structure with year as a fixed effect: 
+
+$$
+
+CWM \sim Normal(\mu_{CWM}, \sigma) \\
+\mu_{CWM} = \beta_0 + \beta_YY + \beta_PP + \beta_LL + \beta_TT + \beta_{YP}YP + \beta_{YL}YL + \beta_{YT}YT,
+
+$$
+where $Y$ represents year (1970-2020), $P$ represents precipitation of the warmest quarter, $L$ reprents latitude, $T$ represents mean temperature of the warmest quarter. Interactions between year and the three environmental variables are considered.
+
+Model structure with year as a random effect:
+
+$$
+
+CWM \sim Normal(\mu_{CWM}, \sigma) \\
+\mu_{CWM} = \beta_0 + \beta_{0Y} + (\beta_P + \beta_{PY})P + (\beta_{TY} + \beta_T)T + \beta_LL, \\
+
+\beta_{0Y} \sim Normal(0, \tau^2) \\
+\beta_{PY} \sim Normal(0, \tau^2) \\
+\beta_{TY} \sim Normal(0, \tau^2)
+
+$$
+
+## CWM
+
+- Scale Values
+
+```{r}
+
+cwm_mean_scaled = cwm_mean %>% 
+  mutate(across(!c(Region, year, year_since_1970, long, Metric, Index, Community_Abundance), 
+                ~scale(., scale = T, center = T))) %>% 
+  mutate(across(!c(Region, year, year_since_1970, long, Metric, Index, Community_Abundance), ~str_remove(., "[, 1]"))) %>% 
+  mutate(across(!c(Region, year, year_since_1970, long, Metric, Index, Community_Abundance), as.numeric))
+
+```
+
+- Single Environmental Variables
+
+```{r}
+
+# Latitude
+
+formula_lat = as.formula(litter_or_clutch_size_n ~ year_since_1970 + I(year_since_1970^2) + lat + 
+                           year_since_1970:lat + I(year_since_1970^2):lat + (1|Region))
+
+fit = lmer(formula_lat, data = cwm_mean_scaled, weights = Community_Abundance, 
+           na.action = "na.fail")
+
+model_selection = MuMIn::dredge(fit)
+
+print(model_selection)
+
+summary(get.models(model_selection, 1)[[1]])
+
+```
+
+```{r}
+
+# Temperature (bio10)
+
+formula_temp = as.formula(litter_or_clutch_size_n ~ year_since_1970 + I(year_since_1970^2) + bio10 + 
+                            year_since_1970:bio10 + I(year_since_1970^2):bio10 + (1|Region))
+
+fit = lmer(formula_temp, data = cwm_mean_scaled, weights = Community_Abundance, 
+           na.action = "na.fail")
+
+model_selection = MuMIn::dredge(fit)
+
+print(model_selection)
+
+summary(get.models(model_selection, 1)[[1]])
+
+```
+
+```{r}
+
+# Precipitation (bio18)
+
+formula_temp = as.formula(litter_or_clutch_size_n ~ year_since_1970 + I(year_since_1970^2) + bio18 + year_since_1970:bio18 + (1|Region))
+
+fit = lmer(formula_temp, data = cwm_mean_scaled, weights = Community_Abundance)
+
+summary(fit)
+
+```
+
+- All Environmental Variables
+
+```{r}
+
+# Morphological and demographic traits
+
+best_models = foreach(tr = traits) %dopar% {
+  
+  formula_full = as.formula(paste(tr, " ~ year_since_1970 +
+                            lat + bio10 + bio18 + 
+                            year_since_1970:lat + year_since_1970:bio10 + year_since_1970:bio18 +
+                            (1|Region)"))
+  
+  # I(year_since_1970^2):lat + I(year_since_1970^2):bio10 + I(year_since_1970^2):bio18 + + I(year_since_1970^2)
+  
+  fit = lmerTest::lmer(formula_full, data = cwm_mean_scaled, weights = Community_Abundance, 
+           na.action = "na.fail")
+  
+  model_selection = MuMIn::dredge(fit)
+  MuMIn::get.models(model_selection, 1)[[1]]
+  
+}
+
+names(best_models) = traits
+
+model_params = foreach(i = 1:length(best_models), .combine = rbind, .packages = "tidyverse") %dopar% {
+  
+  m = as.data.frame(summary(best_models[[i]])$coeff) %>% 
+    rownames_to_column("parameters") %>% 
+    mutate("trait" = names(best_models)[i])
+  colnames(m) = c("parameters", "estimate", "se", "df", "t_value", "p_value", "trait")
+  
+  m
+  
+}
+
+# Dietary and foraging traits
+
+trait_list_diet = colnames(cwm_mean_scaled)[14:30]
+
+best_models_diet = foreach(tr = trait_list_diet) %dopar% {
+  
+  formula_full = as.formula(paste(tr, " ~ year_since_1970 + I(year_since_1970^2) + 
+                            lat + bio10 + bio18 + 
+                            year_since_1970:lat + year_since_1970:bio10 + year_since_1970:bio18 + 
+                            I(year_since_1970^2):lat + I(year_since_1970^2):bio10 + I(year_since_1970^2):bio18 + 
+                            (1|Region)"))
+  
+  fit = lmerTest::lmer(formula_full, data = cwm_mean_scaled, weights = Community_Abundance, 
+           na.action = "na.fail")
+  
+  model_selection = MuMIn::dredge(fit)
+  MuMIn::get.models(model_selection, 1)[[1]]
+  
+}
+
+names(best_models_diet) = trait_list_diet
+
+model_params_diet = foreach(i = 1:length(best_models_diet), .combine = rbind, .packages = "tidyverse") %dopar% {
+  
+  m = as.data.frame(summary(best_models_diet[[i]])$coeff) %>% 
+    rownames_to_column("parameters") %>% 
+    mutate("trait" = names(best_models_diet)[i])
+  colnames(m) = c("parameters", "estimate", "se", "df", "t_value", "p_value", "trait")
+  
+  m
+  
+}
+
+```
+
+- Visualization
+
+```{r}
+
+p_tr = model_params %>% 
+  mutate(signif = if_else(p_value >= 0.05, F, T), 
+         positive = if_else(estimate > 0, T, F)) %>% 
+  filter(parameters != "(Intercept)") %>% 
+  ggplot(aes(x = parameters, y = estimate, color = positive, alpha = signif)) + 
+  geom_pointrange(aes(ymin = estimate-se, ymax = estimate+se)) + 
+  geom_hline(yintercept = 0, color = "black") + 
+  scale_alpha_manual(values = c(0.2, 1)) +
+  xlab("Parameter") + 
+  ylab("Estimate") +
+  ggh4x::facet_wrap2(. ~ trait, scales = "free_y", 
+                     labeller = as_labeller(c(`Beak.Length_Culmen` = "Beak Length (Culmen)", 
+                                              `Beak.Length_Nares` = "Beak Length (Nares)",
+                                              `Beak.Width` = "Beak Width", 
+                                              `Beak.Depth` = "Beak Depth",
+                                              `Tarsus.Length` = "Tarsus Length",
+                                              `Wing.Length` = "Wing Length",
+                                              `Kipps.Distance` = "Kipp's Distance", 
+                                              `Hand.Wing.Index` = "Hand-Wing Index", 
+                                              `litter_or_clutch_size_n` = "Clutch Size", 
+                                              `Mass` = "Mass", 
+                                              `Secondary1` = "Secondary Length",
+                                              `Tail.Length` = "Tail Length", 
+                                              `PC1_beak` = "Beak PC1", 
+                                              `PC2_beak` = "Beak PC2", 
+                                              `PC1_wing` = "Wing PC1", 
+                                              `PC2_wing` = "Wing PC2", 
+                                              `relative_wing_length` = "Relative Wing Length", 
+                                              `GenLength` = "Generation Length"
+                                               ))) + 
+  theme_bw() +
+  theme(axis.text.x = element_text(size = 10, angle = 75, vjust = 0.5), 
+        axis.text.y = element_text(size = 10),
+        axis.title = element_text(size = 12), 
+        strip.text = element_text(size = 10), 
+        legend.position = "none")
+
+p_tr
+
+```
+
+```{r}
+
+p_tr_2 = model_params %>% 
+  mutate(signif = if_else(p_value >= 0.05, F, T)) %>% 
+  filter(parameters != "(Intercept)", 
+         trait %in% c("Wing.Length", "Mass")) %>% 
+  ggplot(aes(x = parameters, y = estimate, color = trait, alpha = signif)) + 
+  geom_pointrange(aes(ymin = estimate-se, ymax = estimate+se)) + 
+  geom_hline(yintercept = 0, color = "black") + 
+  scale_alpha_manual(values = c(0.2, 1)) +
+  xlab("Parameter") + 
+  ylab("Estimate") +
+  ggh4x::facet_wrap2(. ~ trait, scales = "free_y", 
+                     labeller = as_labeller(c(`Wing.Length` = "Wing Length",
+                                              `Mass` = "Mass"))) + 
+  theme_bw() +
+  theme(axis.text.x = element_text(size = 10, angle = 75, vjust = 0.5), 
+        axis.text.y = element_text(size = 10),
+        axis.title = element_text(size = 12), 
+        strip.text = element_text(size = 10), 
+        legend.position = "none")
+
+p_tr_2
+
+```
+
+```{r}
+
+p_tr_diet = model_params_diet %>% 
+  mutate(signif = if_else(p_value >= 0.05, F, T)) %>% 
+  ggplot(aes(x = parameters, y = estimate, color = trait, alpha = signif)) + 
+  geom_pointrange(aes(ymin = estimate-se, ymax = estimate+se)) + 
+  geom_hline(yintercept = 0, color = "black") + 
+  scale_alpha_manual(values = c(0.2, 1)) +
+  ggh4x::facet_wrap2(~trait, scales = "free_y") + 
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 60, vjust = 0.5), legend.position = "none")
+
+p_tr_diet
+
+```
+
+- Save Figures
+
+```{r}
+
+ggsave("CWM_Figures/lmer/CWM_lmer_Morph_New_Pass.pdf", p_tr, device = "pdf", width = 2400, height = 2400, unit = "px")
+ggsave("CWM_Figures/lmer/CWM_lmer_Diet.pdf", p_tr_diet, device = "pdf", width = 4800, height = 3600, unit = "px")
+
+ggsave("CWM_Figures/lmer/CWM_lmer_2_below55.pdf", p_tr_2, device = "pdf", width = 2400, height = 1200, unit = "px")
+
+```
+
+### Other Trials
+
+- Stepwise
+
+```{r}
+
+formula_full = as.formula(litter_or_clutch_size_n ~ year_since_1970 + lat + bio10 + bio18 + 
+                            year_since_1970:lat + year_since_1970:bio10 + year_since_1970:bio18)
+
+full_model = lm(formula_full, data = cwm_mean_scaled, weights = cwm_mean_scaled$Community_Abundance)
+
+stepwise_model = MASS::stepAIC(full_model, direction = "both")
+
+summary(stepwise_model)
+
+```
+
+- lmer
+
+```{r}
+
+formula_full = as.formula(Mass ~ year_since_1970 + lat + bio10 + bio18 + 
+                            year_since_1970:lat + year_since_1970:bio10 + year_since_1970:bio18 + (1 | Region))
+
+fit = lmer(formula_full, data = cwm_mean, weights = Community_Abundance)
+
+summary(fit)
+
+```
+- LASSO
+
+```{r}
+
+x = model.matrix(formula_full, cwm_mean[, c("year", "lat", "bio10", "bio18", "Kipps.Distance")])
+y = as.matrix(cwm_mean$Kipps.Distance, ncol = 1)
+
+# Choose the best lambda
+
+cv_fit = cv.glmnet(x, y, weights = cwm_mean$Community_Abundance, 
+                   type.measure = "mse", alpha = 1)
+
+plot(cv_fit)
+
+min_lambda = cv_fit$lambda.min
+one_se_lambda = cv_fit$lambda.1se
+
+# Use the best lambda to conduct LASSO regression
+
+final_model = glmnet(x, y, weights = cwm_mean$Community_Abundance, 
+                     alpha = 1, lambda = min_lambda)
+
+coeffs = coef(final_model)
+print(coeffs)
+
+rownames(coef(final_model))[coef(final_model)[,1] != 0]
+
+```
+
+- brms
+
+```{r}
+
+n_chains = 4
+warmup = 25000
+iterations = 50000
+
+formula_brms = bf(Mass | weights(Community_Abundance) ~ year + lat + bio10 + bio18 + year:lat + year:bio10 + year:bio18)
+
+fit = brm(formula_full, data = cwm_mean, family = gaussian(),
+          chains = n_chains, 
+          cores = n_chains,
+          warmup = warmup, 
+          iter = iterations)
+
+summary(fit)
+pp_check(fit)
+
+mcmc_plot(fit, type = "trace")
+mcmc_plot(fit, variable = c("b_year", "b_lat", "b_bio10", "b_bio18", "b_year:bio10"))
+
+```
+
+# Communities Over Time
+
+## Ordination Analysis
+
+- MFA of All Grids
+
+```{r}
+
+# Morphology and clutch size only
+
+cwm_mean_rownames = cwm_mean %>% 
+  filter(year <= 2020) %>% 
+  unite(year_region, c("year", "Region"), sep = "/") %>% 
+  select(-lat, -long, -Metric, -Index, -Community_Abundance, -starts_with("bio")) %>% 
+  select(1:13) %>% 
+  column_to_rownames(var = "year_region")
+
+mfa_basic = MFA(cwm_mean_rownames,
+                group = c(4, 1, 4, 1, 1, 1), 
+                type = rep("c", 6), 
+                name.group = c("Beak", "Tarsus", "Wing", "Tail", "Mass", "ClutchSize"),
+                graph = F)
+
+# Check axes
+
+pl_axes = fviz_mfa_axes(mfa_basic)
+pl_axes
+fviz_mfa_axes(mfa_basic, axes = c(3, 4))
+
+# Check individuals (doesn't really make sense)
+
+fviz_mfa_ind(mfa_basic)
+
+```
+
+```{r}
+
+ggsave("CWM_Figures/Trajectories/MFA_axes_Pass.pdf", fviz_mfa_axes(mfa_basic), device = "pdf", 
+       width = 2400, height = 1800, unit = "px")
+
+```
+
+- PCA of All Grids
+
+```{r}
+
+# Morphology and demographic traits only
+
+cwm_mean_rownames = cwm_mean %>% 
+  filter(year <= 2020) %>% 
+  unite(year_region, c("year", "Region"), sep = "/") %>% 
+  select(-lat, -long, -Metric, -Index, -Community_Abundance, -starts_with("bio")) %>% 
+  select(1, 12, 13, 15, 18, 19) %>% 
+  column_to_rownames(var = "year_region")
+
+pca_comm = prcomp(cwm_mean_rownames, scale = T, center = T)
+
+fviz_pca_var(pca_comm)
+
+# MFA for comparison
+
+mfa_comm = MFA(cwm_mean_rownames,
+                group = c(1, 1, 1, 1, 1), 
+                type = rep("c", 5), 
+                name.group = c("Mass", "Beak", "Wing", "ClutchSize", "GenLength"),
+                graph = F)
+
+fviz_mfa_axes(mfa_comm)
+
+# Use MFA because (1) essentially the same as PCA but (2) coordinations are consistent with all birds and passerines only
+
+```
+
+```{r}
+
+ggsave("CWM_Figures/Trajectories/PCA_axes.pdf", fviz_pca_var(pca_comm), device = "pdf", 
+       width = 1800, height = 1800, unit = "px")
+
+```
+
+- Extract Coordinates
+
+```{r}
+
+# From MFA
+
+all_ind = as.data.frame(mfa_comm$ind$coord) %>% 
+  rownames_to_column(var = "year_region") %>% 
+  separate_wider_delim(year_region, names = c("year", "region"), delim = "/", cols_remove = F) %>% 
+  mutate(year = as.numeric(year))
+
+# From PCA
+
+all_ind = as.data.frame(pca_comm$x) %>% 
+  rownames_to_column(var = "year_region") %>% 
+  separate_wider_delim(year_region, names = c("year", "region"), delim = "/", cols_remove = F) %>% 
+  mutate(year = as.numeric(year))
+
+```
+
+- Examples of Grids over Time
+
+```{r}
+
+# Single grids
+
+pl_single_grid = all_ind %>% 
+  filter(region == "40_-110") %>%
+  ggplot(aes(x = Dim.1, y = Dim.2, color = year)) + 
+  geom_point() + 
+  geom_path() + 
+  scale_color_gradientn(colors = viridis::viridis(10)) + 
+  theme_bw()
+
+all_ind %>% 
+  filter(region == "34_-77") %>%
+  ggplot(aes(x = Dim.1, y = Dim.2, color = year)) + 
+  geom_point() + 
+  geom_path() + 
+  scale_color_gradientn(colors = viridis::viridis(10)) + 
+  theme_bw() + 
+  coord_equal()
+
+all_ind %>% 
+  filter(region == "31_-110") %>%
+  ggplot(aes(x = Dim.1, y = Dim.2, color = year)) + 
+  geom_point() + 
+  geom_path() + 
+  scale_color_gradientn(colors = viridis::viridis(10)) + 
+  theme_bw()
+
+```
+
+- Plot Communities and Axes Together
+
+```{r}
+
+# Select variables
+
+var_coords = data.frame(mfa_basic$quanti.var$coord)
+
+# Select one grid
+
+subset_ind = all_ind %>% 
+  filter(region == "40_-110")
+
+# Plot variables
+
+plot_var = 
+  ggplot() +
+  geom_segment(data = var_coords, aes(x = 0, y = 0, xend = Dim.1, yend = Dim.2),
+               arrow = arrow(length = unit(0.3, "cm")), color = "blue") +
+  geom_text(data = var_coords, aes(x = Dim.1, y = Dim.2, label = rownames(var_coords)),
+            color = "blue", vjust = 1, hjust = 1) +
+  theme_minimal() +
+  ggtitle("MFA - Variables and Subset of Individuals")
+
+pl_ind = fviz_mfa_ind(mfa_basic, 
+                      select.ind = list(coord = 1:10))
+
+```
+
+```{r}
+
+ggsave("CWM_Figures/Trajectories/Single_Grid.pdf", pl_single_grid, device = "pdf", 
+       width = 2400, height = 1800, unit = "px")
+
+```
+
+## Trajectory Analysis Using `trajr`
+
+https://onlinelibrary.wiley.com/doi/10.1111/eth.12739
+https://cran.rstudio.com/web/packages/trajr/vignettes/trajr-vignette.html
+
+Select the following characteristics for each trajectory:
+- speed (mean and sd for characterizing amount of the shift)
+- directional change (mean for characterizing nonlinearity, sd for characterizing irregularity)
+- Emax (maximum expected displacement; larger value means straighter paths)
+- effective displacement (distance from the beginning to the end)
+- effective angle (the angle from the beginning to the end)
+
+- Characterize Trajectories
+
+```{r}
+
+# Calculate trajectory for all grids
+
+all_traj = foreach(r = unique(all_ind$region), .packages = c("tidyverse", "trajr")) %dopar% {
+  
+  coord = all_ind %>% 
+    filter(region == r)
+  
+  traj = TrajFromCoords(coord, xCol = 4, yCol = 5, fps = 1)
+  
+  traj
+  
+}
+
+names(all_traj) = unique(all_ind$region)
+
+# Characterize multiple trajectories
+
+all_traj_char = foreach(r = names(all_traj), 
+                        .combine = rbind, .packages = c("tidyverse", "trajr")) %dopar% {
+  
+  mean_speed = mean(TrajDerivatives(all_traj[[r]])$speed)
+  sd_speed = sd(TrajDerivatives(all_traj[[r]])$speed)
+  mean_dc = mean(TrajDirectionalChange(all_traj[[r]]))
+  sd_dc = sd(TrajDirectionalChange(all_traj[[r]]))
+  Emax = TrajEmax(all_traj[[r]])
+  
+  # Consider the start and end only to calculate effective displacement and angle
+  
+  x1 = all_traj[[r]]$x[1]
+  x2 = all_traj[[r]]$x[51]
+  y1 = all_traj[[r]]$y[1]
+  y2 = all_traj[[r]]$y[51]
+  
+  eff_displ = sqrt((x2 - x1)^2 + (y2 - y1)^2)
+  eff_angle = atan2(y2 - y1, x2 - x1) # /pi*180
+  
+  # Output
+  
+  traj_char = tibble(region = r, 
+                     mean_speed = mean_speed, 
+                     sd_speed = sd_speed, 
+                     mean_dc = mean_dc, 
+                     sd_dc = sd_dc, 
+                     Emax = Emax, 
+                     eff_displ = eff_displ, 
+                     eff_angle = eff_angle)
+  
+  traj_char
+  
+}
+
+```
+
+- Clustering of Trajectories
+
+```{r}
+
+all_traj_char = as.data.frame(all_traj_char)
+rownames(all_traj_char) = all_traj_char$region
+all_traj_char = all_traj_char[, -1]
+
+# PCA
+
+pca_traj = prcomp(all_traj_char, scale = T, center = T)
+
+p_pca_traj = 
+  autoplot(pca_traj, loadings = T, loadings.label = T) + 
+  theme_bw() + 
+  theme(axis.text.x = element_text(size = 10), 
+        axis.text.y = element_text(size = 10),
+        axis.title = element_text(size = 12))
+
+p_pca_traj
+
+# Clustering Analysis
+
+fviz_nbclust(all_traj_char, kmeans, k.max = 20, method = "silhouette")
+
+clust = eclust(all_traj_char, "kmeans", k = 2)
+
+p_clust = fviz_cluster(clust) + 
+  theme_bw() + 
+  theme(axis.text.x = element_text(size = 10), 
+        axis.text.y = element_text(size = 10),
+        axis.title = element_text(size = 12), 
+        title = element_blank())
+
+p_clust
+
+# fviz_gap_stat(clust$gap_stat)
+
+```
+
+PC1: regularity and amount of shift
+PC2: linearity (straightness)
+
+## Spatial Visualization of Trajectories
+
+- Map
+
+```{r}
+
+latlong_shp = read_sf("../Databases/NABBS/Grids/BBS_LatLong_strata.shp")
+
+```
+
+- Single Characteristic
+
+```{r}
+
+traj_char_df = all_traj_char %>% 
+  mutate(region = names(clust$cluster)) %>% 
+  right_join(latlong_shp, by = c("region" = "ST_12"))
+
+p_mean_speed_map =
+  ggplot() + 
+  geom_sf(data = traj_char_df, 
+          aes(fill = sqrt(mean_speed), geometry = geometry), 
+          color = "gray", size = 0.1, 
+          inherit.aes = F) + 
+  coord_sf() + 
+  scale_fill_gradientn(name = "sqrt(Mean Speed)", colors = viridis::viridis(10)) + 
+  theme_bw() + 
+  theme(panel.grid = element_blank(), 
+        axis.ticks = element_blank(), 
+        axis.text = element_blank(), 
+        legend.title = element_text(size = 12), 
+        legend.text = element_text(size = 10), 
+        legend.position = "none")
+  
+p_eff_angle_map =
+  ggplot() + 
+  geom_sf(data = traj_char_df %>% 
+            mutate(angle_bins = case_when(eff_angle/pi*180 > 0 & eff_angle/pi*180 <= 90 ~ 1, 
+                                          eff_angle/pi*180 > 90 & eff_angle/pi*180 <= 180 ~ 2, 
+                                          eff_angle/pi*180 > -180 & eff_angle/pi*180 <= -90 ~ 3, 
+                                          eff_angle/pi*180 > -90 & eff_angle/pi*180 <= 0 ~ 4)), 
+          aes(fill = as.factor(angle_bins), geometry = geometry), 
+          color = "gray", size = 0.1, 
+          inherit.aes = F) + 
+  coord_sf() + 
+  scale_fill_manual(name = "Effective Angle", values = viridis::viridis(4)) +
+  theme_bw() + 
+  theme(panel.grid = element_blank(), 
+        axis.ticks = element_blank(), 
+        axis.text = element_blank(), 
+        legend.title = element_text(size = 12), 
+        legend.text = element_text(size = 10),
+        legend.position = "none")
+
+p_Emax_map =
+  ggplot() + 
+  geom_sf(data = traj_char_df, 
+          aes(fill = Emax, geometry = geometry), 
+          color = "gray", size = 0.1, 
+          inherit.aes = F) + 
+  coord_sf() + 
+  scale_fill_gradientn(name = "Emax", colors = viridis::viridis(10)) + 
+  theme_bw() + 
+  theme(panel.grid = element_blank(), 
+        axis.ticks = element_blank(), 
+        axis.text = element_blank(), 
+        legend.title = element_text(size = 12), 
+        legend.text = element_text(size = 10),
+        legend.position = "none")
+
+p_eff_displ_map =
+  ggplot() + 
+  geom_sf(data = traj_char_df, 
+          aes(fill = sqrt(eff_displ), geometry = geometry), 
+          color = "gray", size = 0.1, 
+          inherit.aes = F) + 
+  coord_sf() + 
+  scale_fill_gradientn(name = "sqrt(Effective Displacement)", colors = viridis::viridis(10)) + 
+  theme_bw() + 
+  theme(panel.grid = element_blank(), 
+        axis.ticks = element_blank(), 
+        axis.text = element_blank(), 
+        legend.title = element_text(size = 12), 
+        legend.text = element_text(size = 10),
+        legend.position = "none")
+
+p_mean_speed_map
+p_eff_angle_map
+p_Emax_map
+p_eff_displ_map
+
+```
+
+- Clusters
+
+```{r}
+
+clust_df = tibble(region = names(clust$cluster), 
+                  cluster = as.factor(clust$cluster)) %>% 
+  right_join(latlong_shp, by = c("region" = "ST_12"))
+
+p_clust_map = 
+  ggplot() + 
+  geom_sf(data = clust_df, 
+          aes(fill = cluster, geometry = geometry), 
+          color = "gray", size = 0.1, 
+          inherit.aes = F) + 
+  coord_sf() + 
+  scale_fill_discrete(name = "Cluster") + 
+  theme_bw() + 
+  theme(panel.grid = element_blank(), 
+        axis.ticks = element_blank(), 
+        axis.text = element_blank(), 
+        legend.title = element_text(size = 12), 
+        legend.text = element_text(size = 10))
+
+p_clust_map
+
+```
+
+- Save Figures
+
+```{r}
+
+ggsave("CWM_Figures/Trajectories/Mean_Speed_Map_New.pdf", p_mean_speed_map, device = "pdf", 
+       width = 2400, height = 1800, unit = "px")
+ggsave("CWM_Figures/Trajectories/Emax_Map_New.pdf", p_Emax_map, device = "pdf", 
+       width = 2400, height = 1800, unit = "px")
+ggsave("CWM_Figures/Trajectories/Eff_Angle_Map_New.pdf", p_eff_angle_map, device = "pdf", 
+       width = 2400, height = 1800, unit = "px")
+ggsave("CWM_Figures/Trajectories/Eff_Displ_Map_New.pdf", p_eff_displ_map, device = "pdf", 
+       width = 2400, height = 1800, unit = "px")
+
+ggsave("CWM_Figures/Trajectories/PCA_Traj.pdf", p_pca_traj, device = "pdf", 
+       width = 2400, height = 1800, unit = "px")
+ggsave("CWM_Figures/Trajectories/Clusters.pdf", p_clust, device = "pdf", 
+       width = 2400, height = 1800, unit = "px")
+ggsave("CWM_Figures/Trajectories/Clusters_Map.pdf", p_clust_map, device = "pdf", 
+       width = 2400, height = 1800, unit = "px")
+
+```
+
+## PCoA
+
+- PCoA of Grids over Time
+
+```{r}
+
+test = cwm_mean %>% 
+  filter(Region %in% unique(Region)[1:100]) %>% 
+  unite(id, c(Region, year), sep = "/") %>% 
+  select(-starts_with("bio"), -lat, -long, -Metric, -Index, -Community_Abundance)
+
+test = as.data.frame(test)
+rownames(test) = test$id
+test = test[, -1]
+
+# Distance matrix
+
+dist_mat = vegdist(test, method = "euclidean")
+
+pcoa_res = pcoa(dist_mat)
+
+biplot.pcoa(pcoa_res, test)
+
+```
+
+- Trajectory Analysis Using `ecotraj`
+
+https://emf-creaf.github.io/ecotraj/articles/IntroductionETA.html
+
+```{r}
+
+test = cwm_mean %>% 
+  filter(Region %in% unique(Region)[1]) %>% 
+  select(-starts_with("bio"), -lat, -long, -Metric, -Index, -Community_Abundance) %>% 
+
+n_years = length(unique(test$year))
+n_grids = length(unique(test$Region))
+
+# Specify sites and surveys vectors
+
+sites = rep(unique(test$Region), each = n_years)
+surveys = rep(unique(test$year), n_grids)
+
+```
+
+```{r}
+
+# Plot trajectory (can be replaced with ggplot)
+
+traj = trajectoryPCoA(dist_mat, sites, surveys, lwd = 0.5, survey.labels = T)
+
+# Trajectory lengths
+
+trajectoryLengths(dist_mat, sites, surveys)
+
+# Trajectory angles
+
+trajectoryAngles(dist_mat, sites, surveys)
+
+# Trajectory directionality
+
+trajectoryDirectionality(dist_mat, sites, surveys)
+
+# Trajectory convergence
+
+trajectoryConvergence(dist_mat, sites, surveys, symmetric = T)
+
+# Distance between segments
+
+segmentDistances(dist_mat, sites, surveys)
+
+```
+
+# SNC
+
+```{r}
+
+# SNC ~ Functional Traits
+
+snc_traits = left_join(SNC_Lat_Long, All_Funct_Data[, c(1:10, 12, 39)], 
+                       by = "Species") %>% 
+  rename("Hand.Wing.Index" = `Hand-Wing.Index`)
+
+snc_trt_slopes = foreach(t = colnames(snc_traits)[7:17], 
+                         .combine = rbind, .packages = "tidyverse") %dopar% {
+                           
+  snc_tr = snc_traits %>% 
+    filter(Index == "Mean") %>% 
+    select(Species, Mean_Lat, year, Regional_Abundance, all_of(`t`))
+  
+  slope_list = list()
+  
+  formula = as.formula(paste("Mean_Lat", "~", t))
+  
+  for (y in unique(snc_traits$year)) {
+    
+    m_w = lm(formula = formula, 
+             weights = Regional_Abundance, 
+             data = snc_tr %>% 
+               filter(year == y))
+    m_e = lm(formula = formula, 
+             data = snc_tr %>% 
+               filter(year == y))
+    
+    slope = tibble(Model = c("weighted", "unweighted"), 
+                   pValue = c(summary(m_w)$coefficients[2, 4], summary(m_e)$coefficients[2, 4]),
+                   Slope = c(summary(m_w)$coefficients[2, 1], summary(m_e)$coefficients[2, 1]), 
+                   year = y)
+    
+    slope_list[[y]] = slope
+    
+  }
+  
+  slopes = bind_rows(slope_list) %>% 
+    mutate(Trait = t)
+  slopes
+                           
+}
+
+# Visualization
+
+snc_trt_slopes %>% 
+  mutate(Signif = ifelse(pValue >= 0.05, "No", "Yes")) %>% 
+  filter(year >= 1970) %>% 
+  ggplot(aes(x = Model, y = Slope)) + 
+  geom_boxplot() +
+  geom_point(position = position_jitter(0.1), 
+             size = 3, shape = 2,
+             aes(color = `year`, alpha = Signif)) +
+  geom_hline(yintercept = 0, color = "red") + 
+  scale_alpha_manual(values = c(0.2, 0.8)) + 
+  ggh4x::facet_wrap2(. ~ Trait, scales = "free_y") + 
+  theme_bw()
+
+# SNC ~ Latitude/Longitude
+
+snc_latlong_slopes = foreach(sp = unique(SNC_Lat_Long$Species),
+                             .combine = rbind, .packages = "tidyverse", 
+                             .errorhandling = "remove") %dopar% {
+                       
+  snc_sp = SNC_Lat_Long %>% 
+    filter(Species == sp, year >= 1970)
+  
+  m_snc_lat = lm(data = snc_sp, 
+                 Mean_Lat ~ year)
+  
+  m_snc_long = lm(data = snc_sp, 
+                  Mean_Long ~ year)
+  
+  slope = tibble(Variable = c("lat", "long"), 
+                 Slope = c(summary(m_snc_lat)$coefficients[2, 1], 
+                           summary(m_snc_long)$coefficients[2, 1]),
+                 pValue = c(summary(m_snc_lat)$coefficients[2, 4], 
+                            summary(m_snc_long)$coefficients[2, 4]), 
+                 Species = sp)
+ 
+  slope
+  
+}
+
+# Visualization
+
+snc_latlong_slopes %>% 
+  mutate(Signif = ifelse(pValue >= 0.05, "No", "Yes")) %>% 
+  filter(Slope <= 5 & Slope >= -5) %>% 
+  ggplot(aes(x = Variable, y = Slope)) + 
+  geom_boxplot() +
+  geom_point(position = position_jitter(0.1), 
+             size = 3, shape = 2,
+             aes(alpha = Signif)) +
+  geom_hline(yintercept = 0, color = "red") + 
+  scale_alpha_manual(values = c(0.2, 0.8)) + 
+  theme_bw()
+
+```
