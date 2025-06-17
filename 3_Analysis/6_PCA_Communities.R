@@ -30,7 +30,7 @@ Weighted_TopSpp = read_csv(paste0(generated_dir, "CWMetrics_TopSpp.csv")) %>%
 
 # Read community-weighted metrics of species with the largest contributions
 
-Weighted_RestSpp = read_csv(paste0(generated_dir, "Data/CWMetrics_RestSpp.csv")) %>% 
+Weighted_RestSpp = read_csv(paste0(generated_dir, "CWMetrics_RestSpp.csv")) %>% 
   rename("Hand.Wing.Index" = "Hand-Wing.Index")
 
 # Join CW Metrics with climate and anthrome data
@@ -69,10 +69,11 @@ summary(pca_base)
 
 fviz_pca_var(pca_base)
 
-# If clutch size vector is negative, flip the second component
+# Flip axes such that relative beak/ wing length arrows are positive for PC1, 
+# and clutch size arrow is positive for PC2
 
-pca_base$rotation[, 2] = -pca_base$rotation[, 2]
-pca_base$x[, 2] = -pca_base$x[, 2]
+pca_base$rotation[, 1:2] = -pca_base$rotation[, 1:2]
+pca_base$x[, 1:2] = -pca_base$x[, 1:2]
 
 # Extract axes for further analyses
 

@@ -23,7 +23,7 @@ generated_dir = "GeneratedData/"
 ########## Read All Indices ##########
 
 
-# Read all indices from the default run (2000 iterations)
+# Read all indices from model fitting
 
 files_indices = (Sys.glob(paste0(indices_dir, "*.csv")))
 
@@ -45,7 +45,7 @@ All_Indices = bind_rows(all_indices_lst)
 
 # Read species list, annotated by number of records, guild, and model fitting diagnostics
 
-All_Spp_List = read_csv(paste0(database_dir, "BBS_List_Rerun.csv"))
+All_Spp_List = read_csv(paste0(database_dir, "BBS_List_PIF"))
 
 # Remove duplicates of common names due to mergers
 
@@ -123,6 +123,15 @@ comms_remove = All_Comms_Filtered %>%
 
 All_Comms_Filtered = All_Comms_Filtered %>% 
   filter(!(region %in% comms_remove$region))
+
+# Apply PIF adjustments
+
+All_Comms_Filtered_adj = All_Comms_Filtered %>% 
+  left_join(All_Spp_List %>% select(-aou, -english) %>% distinct(), by = "latin") %>% 
+  mutate(index = index * PIF_adj_birds_km2, 
+         index_q_0.05 = index_q_0.05 * PIF_adj_birds_km2, 
+         index_q_0.95 = index_q_0.95 * PIF_adj_birds_km2) %>% 
+  select(-PIF_adj_birds_km2)
 
 
 ########## Write Data ##########

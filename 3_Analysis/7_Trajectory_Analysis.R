@@ -224,7 +224,7 @@ loadings_scaled = pca_loadings %>%
   mutate(across(PC1:PC2, ~.*scaling_factor)) %>% 
   mutate(Trait = recode(Trait, !!!trait_labels))
 
-p_pca = 
+p_pca_examples = 
   ggplot() +
   geom_hline(yintercept = 0, color = "gray50") + 
   geom_vline(xintercept = 0, color = "gray50") +
@@ -251,9 +251,9 @@ p_pca =
         legend.title = element_text(size = 12),
         legend.text = element_text(size = 10))
 
-p_pca
+p_pca_examples
 
-ggsave(paste0(figure_dir, "Ind_Community_Vectors.png"), p_pca, device = "png", 
+ggsave(paste0(figure_dir, "Ind_Community_Vectors.png"), p_pca_examples, device = "png", 
        width = 1600, height = 1200, unit = "px")
 
 # Example grid, without PCA vectors
@@ -507,3 +507,17 @@ p_angles_env = angle_bins_env %>%
 
 ggsave(paste0(figure_dir, "Angles_TempSeasonality.png"), p_angles_env, device = "png", 
        width = 1600, height = 1200, unit = "px")
+
+
+########## Save Final Figures ##########
+
+
+ggsave(paste0(figure_dir, "Start_End_Angle_all.pdf"), p_start_end_angle_all, device = "pdf", 
+       width = 4000, height = 3000, unit = "px")
+
+# Note: p_pca is in 6_PCA_Communities.R
+
+p_left_panels = p_pca / p_ind / p_hetero + plot_layout(axis_titles = "collect")
+
+ggsave(paste0(figure_dir, "Left_Panels.pdf"), p_left_panels, device = "pdf", 
+       width = 1500, height = 3000, unit = "px")

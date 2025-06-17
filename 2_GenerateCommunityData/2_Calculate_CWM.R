@@ -31,12 +31,12 @@ generated_dir = "GeneratedData/"
 
 All_Comms = read_csv("/home/hxzou/proj-birds/FunctionalDiversity/FD/GeneratedData/All_Communities_Filtered.csv")
 
-
-top_spp = c("Corvus brachyrhynchos", "Agelaius phoeniceus", "Zenaida macroura", "Branta canadensis",
-           "Sturnus vulgaris", "Passer domesticus", "Corvus corax", "Quiscalus quiscula", "Petrochelidon pyrrhonota",
-           "Turdus migratorius", "Cathartes aura", "Meleagris gallopavo", "Ardea herodias", "Anas platyrhynchos",
-           "Hirundo rustica", "Eremophila alpestris", "Vireo olivaceus", "Spizella passerina",
-           "Sturnella neglecta", "Colinus virginianus", "Tachycineta bicolor", "Cardinalis cardinalis")
+top_spp = c("Branta canadensis", "Turdus migratorius", "Cathartes aura", "Zenaida macroura",
+            "Meleagris gallopavo", "Corvus brachyrhynchos", "Quiscalus quiscula", "Corvus corax",
+            "Sturnella neglecta", "Phasianus colchicus", "Passer domesticus", "Spizella passerina",
+            "Petrochelidon pyrrhonota", "Polioptila caerulea", "Vireo olivaceus", "Eremophila alpestris",
+            "Passerculus sandwichensis", "Melospiza melodia", "Cardinalis cardinalis", "Troglodytes aedon",
+            "Geothlypis trichas", "Sturnus vulgaris", "Agelaius phoeniceus", "Molothrus ater", "Colinus virginianus")
 
 # IMPORTANT: TO CALCULATE CWM OF ONLY TOP SPECIES, UNCOMMENT BELOW
 

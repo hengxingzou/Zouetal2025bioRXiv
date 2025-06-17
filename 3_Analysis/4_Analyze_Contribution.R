@@ -44,7 +44,7 @@ figure_dir = "Figures/"
 
 # Read functional trait data
 
-All_Funct_Traits = read_csv(paste0(database_dir, "../Databases/Filtered_Funct_Data.csv"))
+All_Funct_Traits = read_csv(paste0(database_dir, "Filtered_Funct_Data.csv"))
 
 selected_traits = All_Funct_Traits %>% 
   select(Species, PC1_beak, PC1_wing, relative_wing_length, relative_bill_length, litter_or_clutch_size_n, corr_GenLength, Mass) %>% 
@@ -198,7 +198,7 @@ ggsave(paste0(figure_dir, "Contributions_Mass.png"), pls_count$Mass, device = "p
 pls_avg_topspp = list()
 
 for (i in 1:length(md_traits)) {
-
+  
   top_10_spp = top_10_tr %>% 
     filter(Trait == md_traits[i]) %>% 
     pull(Species)
@@ -213,10 +213,9 @@ for (i in 1:length(md_traits)) {
                 distinct(), 
               by = c("Species", "Trait")) %>% 
     mutate(Top_Contrib = if_else(Species %in% top_10_spp, "yes", "no"))
-
+  
   xrange = range(all_spps$Scaled_Trait_Val)*1.05
   yrange = range(all_spps$median_slope)*1.05
-  # yrange = range(all_spps$q5, tr_dat$q95)*1.05
   cont = expand_grid(x = seq(xrange[1], xrange[2], by = (xrange[2]-xrange[1])/150), 
                      y = seq(yrange[1], yrange[2], by = (yrange[2]-yrange[1])/150)) %>% 
     mutate(z = x*y)
@@ -224,14 +223,9 @@ for (i in 1:length(md_traits)) {
   
   pl_avg_topspp = ggplot() +
     geom_tile(data = cont, aes(x = x, y = y, fill = z)) +
-    geom_contour(data = cont, aes(x = x, y = y, z = z), color = "gray50", 
-                 breaks = setdiff(seq(zrange[1], zrange[2], length = 10), 0)) + 
     geom_point(data = all_spps,
                aes(x = Scaled_Trait_Val, y = median_slope,
                    alpha = Top_Contrib, size = Num_Total_Top_Grids)) +
-    # geom_pointrange(data = all_spps,
-    #                 aes(x = Scaled_Trait_Val, y = median_slope, ymin = q5, ymax = q95,
-    #                     alpha = Top_Contrib)) +
     ggrepel::geom_text_repel(data = all_spps %>% filter(Top_Contrib == "yes"), 
                              aes(x = Scaled_Trait_Val, y = median_slope, label = Species)) +
     geom_vline(xintercept = 0, linetype = "dashed", color = "gray25") + 
@@ -245,7 +239,7 @@ for (i in 1:length(md_traits)) {
                          breaks = c(zrange[1], 0, zrange[2]), 
                          labels = c("-", "0", "+")) +
     scale_size(name = "Number of Grids where \nSpecies rank Top 10% \nby Contributions") +
-    scale_alpha_manual(values = c(0.1, 1), guide = "none") +
+    scale_alpha_manual(values = c(0.1, 0.8), guide = "none") +
     theme_bw() + 
     theme(title = element_text(size = 12), 
           panel.grid = element_blank(), 
@@ -284,12 +278,14 @@ ggsave(paste0(figure_dir, "Mass_Contour.png"), pls_avg_topspp$Mass,
 
 pls_contour = (pls_avg_topspp$PC1_beak + theme(legend.position = "none")) + 
   (pls_avg_topspp$PC1_wing + theme(legend.position = "none")) + 
+  plot_spacer() + 
   (pls_avg_topspp$relative_bill_length + theme(legend.position = "none")) + 
   (pls_avg_topspp$relative_wing_length + theme(legend.position = "none")) + 
+  plot_spacer() + 
   (pls_avg_topspp$Mass + theme(legend.position = "none")) + 
   (pls_avg_topspp$litter_or_clutch_size_n + theme(legend.position = "none")) + 
   (pls_avg_topspp$corr_GenLength + theme(legend.position = "none")) + 
-  plot_layout(ncol = 4, nrow = 2, axes = "collect")
+  plot_layout(ncol = 3, nrow = 3, axes = "collect")
 
-ggsave(paste0(figure_dir, "All_Contours.png"), pls_contour, 
-       width = 6400, height = 3200, unit = "px")
+ggsave(paste0(figure_dir, "All_Contours.pdf"), pls_contour, 
+       width = 4800, height = 4800, unit = "px")

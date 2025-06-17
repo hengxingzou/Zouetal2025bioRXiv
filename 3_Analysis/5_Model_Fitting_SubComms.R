@@ -6,7 +6,7 @@
 
 # Double check to make sure the directory is correct
 
-source("3_Analysis//2_Model_Fitting_Base.R")
+source("3_Analysis/2_Model_Fitting_Base.R")
 
 # Change the directory according to your working environment
 
@@ -120,8 +120,8 @@ cwm_mean_restspp_t = cwm_mean_restspp %>%
 
 year_models_topspp = foreach(tr = md_traits) %dopar% {
   
-  formula_full = as.formula(paste(tr, " ~ year_since_1969"))
-  fit = lm(formula_full, data = cwm_mean_topspp_t, weights = Community_Abundance)
+  formula_full = as.formula(paste(tr, " ~ year_since_1969 + (1 | Region)"))
+  fit = lmerTest::lmer(formula_full, data = cwm_mean_topspp_t, weights = Community_Abundance)
   fit
   
 }
@@ -130,9 +130,10 @@ names(year_models_topspp) = md_traits
 
 year_params_topspp = foreach(i = 1:length(year_models_topspp), .combine = rbind, .packages = "tidyverse") %dopar% {
   
-  m = broom::tidy(year_models_topspp[[i]]) %>% 
+  m = as.data.frame(summary(year_models_topspp[[i]])$coeff) %>%
+    rownames_to_column("parameters") %>%
     mutate(trait = names(year_models_topspp)[i])
-  colnames(m) = c("parameters", "estimate", "se", "statistic", "p_value", "trait")
+  colnames(m) = c("parameters", "estimate", "se", "df", "t_value", "p_value", "trait")
   
   m
   
@@ -142,8 +143,8 @@ year_params_topspp = foreach(i = 1:length(year_models_topspp), .combine = rbind,
 
 year_models_restspp = foreach(tr = md_traits) %dopar% {
   
-  formula_full = as.formula(paste(tr, " ~ year_since_1969"))
-  fit = lm(formula_full, data = cwm_mean_restspp_t, weights = Community_Abundance)
+  formula_full = as.formula(paste(tr, " ~ year_since_1969 + (1 | Region)"))
+  fit = lmerTest::lmer(formula_full, data = cwm_mean_restspp_t, weights = Community_Abundance)
   fit
   
 }
@@ -152,9 +153,10 @@ names(year_models_restspp) = md_traits
 
 year_params_restspp = foreach(i = 1:length(year_models_restspp), .combine = rbind, .packages = "tidyverse") %dopar% {
   
-  m = broom::tidy(year_models_restspp[[i]]) %>% 
+  m = as.data.frame(summary(year_models_restspp[[i]])$coeff) %>%
+    rownames_to_column("parameters") %>%
     mutate(trait = names(year_models_restspp)[i])
-  colnames(m) = c("parameters", "estimate", "se", "statistic", "p_value", "trait")
+  colnames(m) = c("parameters", "estimate", "se", "df", "t_value", "p_value", "trait")
   
   m
   
@@ -309,7 +311,7 @@ cwm_params_nointeractions = cwm_all_params %>%
 # Save stats
 
 write_csv(cwm_all_params, paste0(stats_dir, "CWM_All_Params.csv"))
-write_csv(cwm_params_nointeractions, paste0(stats_dir, "Stats/CWM_Params_No_Interactions.csv"))
+write_csv(cwm_params_nointeractions, paste0(stats_dir, "CWM_Params_No_Interactions.csv"))
 
 # Visualization
 
@@ -362,5 +364,5 @@ p_tr_cwm_all
 
 # Save figure
 
-ggsave(paste0(figure_dir, "CWM_Year_Env_Compare_NoInteraction.png"), p_tr_cwm_all, device = "png", width = 3200, height = 2400, unit = "px")
+ggsave(paste0(figure_dir, "CWM_Year_Env_Compare_NoInteraction.pdf"), p_tr_cwm_all, width = 3200, height = 2400, unit = "px")
 

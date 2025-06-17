@@ -34,7 +34,7 @@ cwm_mean = All_Weighted_Metrics %>%
 
 # Read relative abundance data
 
-Relative_Abundance = read_csv(paste0(generated_dir, "Relative_Abundance.csv"))
+Relative_Abundance = read_csv(paste0(generated_dir, "Relative_Abundance_orig.csv"))
 
 rel_abundance = Relative_Abundance %>% 
   select(region, latin, year, index, Community_Abundance, Relative_Abundance) %>% 
@@ -42,7 +42,7 @@ rel_abundance = Relative_Abundance %>%
 
 # Read functional trait data
 
-All_Funct_Traits = read_csv(paste0(generated_dir, paste0(database_dir, "Filtered_Funct_Data.csv")))
+All_Funct_Traits = read_csv(paste0(database_dir, "Filtered_Funct_Data.csv"))
 
 selected_traits = All_Funct_Traits %>% 
   select(Species, PC1_beak, PC1_wing, relative_wing_length, relative_bill_length, litter_or_clutch_size_n, corr_GenLength, Mass) %>% 

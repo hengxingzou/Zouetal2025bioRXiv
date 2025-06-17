@@ -28,7 +28,7 @@ generated_dir = "GeneratedData/"
 
 # Read community-weighted metrics of all species
 
-All_Weighted_Metrics = read_csv(paste0(generated_dir, "CWMetrics_Filtered.csv")) %>% 
+All_Weighted_Metrics = read_csv(paste0(generated_dir, "CWMetrics_Filtered_.csv")) %>% 
   rename("Hand.Wing.Index" = "Hand-Wing.Index")
 
 # Read environmental data

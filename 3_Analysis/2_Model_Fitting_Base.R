@@ -79,74 +79,6 @@ cwm_mean_t = cwm_mean %>%
   mutate(corr_GenLength = c(scale(corr_GenLength, scale = T, center = T)))
 
 
-########## Environmental Variables Over Time ##########
-
-
-env_var = colnames(cwm_mean_t)[c(29:34, 36, 37)]
-
-# Environmental variables over time
-
-env_models = foreach(env = env_var) %dopar% {
-  
-  formula_full = as.formula(paste(env, " ~ year_since_1969"))
-  
-  fit = lm(formula_full, data = cwm_mean_t)
-  
-  fit
-  
-}
-
-names(env_models) = env_var
-
-env_params = foreach(i = 1:length(env_models), .combine = rbind, .packages = "tidyverse") %dopar% {
-  
-  m = broom::tidy(env_models[[i]]) %>%
-    mutate(env = names(env_models)[i])
-  colnames(m) = c("parameters", "estimate", "se", "statistic", "p_value", "factor")
-  
-  m
-  
-}
-
-# Save stats
-
-write_csv(env_params, paste0(stat_dir, "Env_Params.csv"))
-
-p_env = env_params %>% 
-  
-  # Add significance values
-  mutate(signif = if_else(p_value >= 0.05, F, T), 
-         positive = if_else(estimate > 0, T, F)) %>% 
-  
-  # Filter only slopes
-  filter(parameters != "(Intercept)") %>% 
-  
-  # Reorder variables
-  mutate(factor = recode(factor, !!!labels)) %>% 
-  mutate(factor = factor(factor, rev(labels))) %>% 
-  
-  ggplot(aes(y = factor, x = estimate, color = positive)) + 
-  geom_pointrange(aes(xmin = estimate-se, xmax = estimate+se), 
-                  size = 0.75) + 
-  geom_vline(xintercept = 0, color = "black") + 
-  xlab("Estimate") + 
-  ylab("Parameter") +
-  scale_color_manual(values = color_2) +
-  theme_bw() +
-  theme(axis.text.x = element_text(size = 10, angle = 60, vjust = 0.5), 
-        axis.text.y = element_text(size = 10),
-        axis.title = element_text(size = 12), 
-        strip.text = element_text(size = 10), 
-        legend.position = "none"
-  )
-
-p_env
-
-# Save figure
-
-ggsave(paste0(figure_dir, "Env_lm_Year.png"), p_env, device = "png", width = 1600, height = 1200, unit = "px")
-
-
 ########## CWM Year Model ##########
 
 
@@ -154,9 +86,9 @@ ggsave(paste0(figure_dir, "Env_lm_Year.png"), p_env, device = "png", width = 160
 
 year_models_cwm = foreach(tr = md_traits) %dopar% {
   
-  formula_full = as.formula(paste(tr, " ~ year_since_1969"))
+  formula_full = as.formula(paste(tr, " ~ year_since_1969 + (1 | Region)"))
   
-  fit = lm(formula_full, data = cwm_mean_t, weights = Community_Abundance)
+  fit = lmerTest::lmer(formula_full, data = cwm_mean_t, weights = Community_Abundance)
   
   fit
   
@@ -166,9 +98,10 @@ names(year_models_cwm) = md_traits
 
 year_params_cwm = foreach(i = 1:length(year_models_cwm), .combine = rbind, .packages = "tidyverse") %dopar% {
   
-  m = broom::tidy(year_models_cwm[[i]]) %>% 
+  m = as.data.frame(summary(year_models_cwm[[i]])$coeff) %>%
+    rownames_to_column("parameters") %>%
     mutate(trait = names(year_models_cwm)[i])
-  colnames(m) = c("parameters", "estimate", "se", "statistic", "p_value", "trait")
+  colnames(m) = c("parameters", "estimate", "se", "df", "t_value", "p_value", "trait")
   
   m
   
@@ -212,6 +145,103 @@ ggsave(paste0(figure_dir, "CWM_lm_Year.png"), p_yr_cwm, device = "png", width = 
 
 # Fit models
 
+year_env_models = foreach(tr = md_traits_log) %dopar% {
+  
+  formula_full = as.formula(paste(tr, " ~ year_since_1969 +
+                            bio10 + bio18 + temp_seasonality + precip_seasonality +
+                            Settlements + Agriculture + Cultured + 
+                            (1 | Region)"))
+  
+  fit = lmerTest::lmer(formula_full, data = cwm_mean_t, weights = Community_Abundance, 
+                       na.action = "na.fail")
+  
+  fit
+  
+}
+
+names(year_env_models) = md_traits
+
+year_env_params = foreach(i = 1:length(year_env_models), .combine = rbind, .packages = "tidyverse") %dopar% {
+  
+  m = as.data.frame(summary(year_env_models[[i]])$coeff) %>% 
+    rownames_to_column("parameters") %>% 
+    mutate("trait" = names(year_env_models)[i])
+  colnames(m) = c("parameters", "estimate", "se", "df", "t_value", "p_value", "trait")
+  
+  m
+  
+}
+
+# Save statistics
+
+write_csv(year_env_params, paste0(stats_dir, "/CWM_Year_Env.csv"))
+
+# Visualization
+
+tr_year_env = year_env_params %>% 
+  
+  # Add significance values
+  mutate(signif = if_else(p_value >= 0.05, F, T), 
+         positive = if_else(estimate > 0, T, F)) %>% 
+  
+  # Filter slopes
+  filter(parameters != "(Intercept)") %>% 
+  filter(!grepl("PC2", trait)) %>% 
+  
+  # Reorder variables
+  mutate(parameters = recode(parameters, !!!labels)) %>% 
+  mutate(parameters = factor(parameters, rev(labels))) %>%
+  mutate(trait = recode(trait, !!!trait_labels)) %>% 
+  mutate(trait = factor(trait, trait_labels))
+
+p_tr_year_env_1 = tr_year_env %>% 
+  filter(trait %in% trait_labels[1:4]) %>% 
+  ggplot(aes(y = parameters, x = estimate, color = positive, alpha = signif)) + 
+  geom_pointrange(aes(xmin = estimate-se, xmax = estimate+se), 
+                  size = 0.75) + 
+  geom_vline(xintercept = 0, color = "black") + 
+  scale_alpha_manual(values = c(0.2, 1)) +
+  xlab("Estimate") + 
+  ylab("Parameter") +
+  scale_color_manual(values = color_2) +
+  ggh4x::facet_wrap2(. ~ trait, scales = "free_x", ncol = 4) + 
+  theme_bw() +
+  theme(axis.text.x = element_text(size = 10, angle = 60, vjust = 0.5), 
+        axis.text.y = element_text(size = 10),
+        axis.title = element_text(size = 12), 
+        strip.text = element_text(size = 10), 
+        legend.position = "none"
+  )
+
+p_tr_year_env_2 = tr_year_env %>% 
+  filter(trait %in% trait_labels[c(5, 6, 11)]) %>% 
+  ggplot(aes(y = parameters, x = estimate, color = positive, alpha = signif)) + 
+  geom_pointrange(aes(xmin = estimate-se, xmax = estimate+se), 
+                  size = 0.75) + 
+  geom_vline(xintercept = 0, color = "black") + 
+  scale_alpha_manual(values = c(0.2, 1)) +
+  xlab("Estimate") + 
+  ylab("Parameter") +
+  scale_color_manual(values = color_2) +
+  ggh4x::facet_wrap2(. ~ trait, scales = "free_x", ncol = 4) + 
+  theme_bw() +
+  theme(axis.text.x = element_text(size = 10, angle = 60, vjust = 0.5), 
+        axis.text.y = element_text(size = 10),
+        axis.title = element_text(size = 12), 
+        strip.text = element_text(size = 10), 
+        legend.position = "none"
+  )
+
+p_tr_year_env = p_tr_year_env_1 / p_tr_year_env_2 + plot_layout(axes = "collect", design = "AAAA
+                                                                             BBB#")
+p_tr_year_env
+
+
+########## CWM Year-Environment Model ##########
+
+
+# Fit models
+
 cwm_models = foreach(tr = md_traits_log) %dopar% {
   
   formula_full = as.formula(paste(tr, " ~ year_since_1969 +
@@ -243,6 +273,10 @@ cwm_params = foreach(i = 1:length(cwm_models), .combine = rbind, .packages = "ti
   m
   
 }
+
+# Save statistics
+
+write_csv(year_env_params, paste0(stats_dir, "/CWM_Full.csv"))
 
 # Visualization
 
