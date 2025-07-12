@@ -339,8 +339,3 @@ p_tr_cwm = p_tr_cwm_1 / p_tr_cwm_2 + plot_layout(axes = "collect", design = "AAA
                                                                              BBB#")
 
 p_tr_cwm
-
-# Save figure
-
-ggsave(paste0(figure_dir, "CWM_Year_Env_NoInteraction.png"), p_tr_cwm, device = "png", width = 3200, height = 2400, unit = "px")
-

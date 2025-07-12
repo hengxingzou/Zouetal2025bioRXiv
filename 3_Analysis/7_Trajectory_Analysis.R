@@ -70,7 +70,7 @@ trait_labels = c(`PC1_beak` = "Beak PC1",
                  `relative_gen_length` = "Relative Generation Length"
 )
 
-color_4 = c("#2972B3", "#99C8F2", "#D98E04", "#734002")
+color_4 = c("#2972B3", "#734002", "#D98E04", "#99C8F2")
 
 
 ########## Read PCA Results ##########
@@ -187,9 +187,6 @@ p_endpoints =
 
 p_endpoints
 
-ggsave(paste0(figure_dir, "Endpoints.png"), p_endpoints, device = "png", 
-       width = 1600, height = 1200, unit = "px")
-
 # Functional positions over time in each region
 
 tally_quad_time = positions_all %>% 
@@ -253,10 +250,7 @@ p_pca_examples =
 
 p_pca_examples
 
-ggsave(paste0(figure_dir, "Ind_Community_Vectors.png"), p_pca_examples, device = "png", 
-       width = 1600, height = 1200, unit = "px")
-
-# Example grid, without PCA vectors
+# Example grid, without PCA vectors (Figure 2A, bottom panel)
 
 p_ind = 
   ggplot(example_grid_2, 
@@ -265,7 +259,7 @@ p_ind =
   geom_path() + 
   geom_hline(yintercept = 0, color = "gray50") + 
   geom_vline(xintercept = 0, color = "gray50") +
-  scale_color_gradientn(colors = color_4, name = "Year") + 
+  scale_color_gradientn(colors = c("gray80", "gray20"), name = "Year") + 
   theme_bw() + 
   theme(panel.grid.minor = element_blank(), 
         axis.text.x = element_text(size = 10), 
@@ -367,10 +361,10 @@ pls_topspp
 pls_restspp = plot_maps(endpoints_restspp, traj_char_restspp, comm_type = "restspp")
 pls_restspp
 
-p_start_end_angle_all = pls_base$start_end_angle + pls_topspp$start_end_angle + pls_restspp$start_end_angle
+# Figure 2B
 
-ggsave(paste0(figure_dir, "Start_End_Angle_all.png"), p_start_end_angle_all, device = "png", 
-       width = 4000, height = 3000, unit = "px")
+p_start_end_angle_all = pls_base$start_end_angle + pls_topspp$start_end_angle + pls_restspp$start_end_angle
+p_start_end_angle_all
 
 
 ########## Spatial Autocorrelation ##########
@@ -399,11 +393,11 @@ p_hetero = sp_hetero_all %>%
   geom_point() + 
   geom_smooth(method = "lm") + 
   geom_hline(yintercept = 0) + 
-  scale_color_manual(name = "Community", labels = c("Base", "Rest", "Top"), 
-                     values = color_4[1:3]) +
-  scale_fill_manual(name = "Community", labels = c("Base", "Rest", "Top"), 
-                     values = color_4[1:3]) + 
-  scale_shape_manual(name = "Community", labels = c("Base", "Rest", "Top"), 
+  scale_color_manual(name = "Community", labels = c("Complete", "Standard", "Top"), 
+                     values = c("#850394", "#464DAE", "#CC7252")) +
+  scale_fill_manual(name = "Community", labels = c("Complete", "Standard", "Top"), 
+                    values = c("#850394", "#464DAE", "#CC7252")) +
+  scale_shape_manual(name = "Community", labels = c("Complete", "Standard", "Top"), 
                      values = c(16, 17, 15)) + 
   xlab("Year") + ylab("Spatial heterogeneity (Moran's I)") + 
   theme_bw() + 
@@ -416,6 +410,8 @@ p_hetero = sp_hetero_all %>%
         legend.position = "bottom")
 
 p_hetero
+
+# Save figure: Figure 2C
 
 ggsave(paste0(figure_dir, "Spatial_Heterogeneity.png"), p_hetero, device = "png", 
        width = 1600, height = 1200, unit = "px")
@@ -453,6 +449,8 @@ p_end_angle_bio = end_angle_region %>%
         axis.title = element_text(size = 12), 
         legend.position = "bottom")
 
+# Save figure: Figure S3
+
 ggsave(paste0(figure_dir, "Endpoints_Bio_Angles.png"), p_end_angle_bio, device = "png", 
        width = 2400, height = 3200, unit = "px")
 
@@ -471,51 +469,23 @@ p_bcr = bcr_shp %>%
         legend.title = element_text(size = 12), 
         legend.text = element_text(size = 10))
 
+# Save figure: Figure S4
+
 ggsave(paste0(figure_dir, "Bioregions.png"), p_bcr, device = "png", 
        width = 2400, height = 1800, unit = "px")
-
-
-########## Quadrant-Environment Associations ##########
-
-
-# Compare temperature seasonality by effective angle bins, 2 and 3 only
-
-angle_bins_env = all_chars %>% 
-  filter(metric == "angle_bins") %>% 
-  filter(value == 2 | value == 3) %>% 
-  left_join(Bioclim, by = c("region" = "ST_12"), relationship = "many-to-many") %>% 
-  mutate(temp_seasonality = bio5 - bio6) %>% 
-  group_by(region, value, group) %>% 
-  summarize(mean_temp_seasonality = mean(temp_seasonality))
-
-p_angles_env = angle_bins_env %>% 
-  ggplot(aes(x = as.factor(value), y = mean_temp_seasonality, 
-             fill = as.factor(value))) + 
-  geom_boxplot() + 
-  ggpubr::stat_compare_means(method = "t.test") + 
-  xlab("Effective Angle") + ylab("Mean Temperature Seasonality over Years") +
-  scale_fill_manual(name = "Effective Angle", values = c("#99C8F2", "#D98E04")) +
-  facet_wrap(.~group, labeller = labeller(group = c("base" = "Base", 
-                                                    "topspp" = "Top", 
-                                                    "restspp" = "Rest"))) + 
-  theme_bw() + 
-  theme(panel.grid.minor = element_blank(), 
-        axis.text.x = element_text(size = 10), 
-        axis.text.y = element_text(size = 10),
-        axis.title = element_text(size = 12), 
-        legend.position = "none")
-
-ggsave(paste0(figure_dir, "Angles_TempSeasonality.png"), p_angles_env, device = "png", 
-       width = 1600, height = 1200, unit = "px")
 
 
 ########## Save Final Figures ##########
 
 
+# Figure 2B
+
 ggsave(paste0(figure_dir, "Start_End_Angle_all.pdf"), p_start_end_angle_all, device = "pdf", 
        width = 4000, height = 3000, unit = "px")
 
 # Note: p_pca is in 6_PCA_Communities.R
+
+# Figure 2A and 2C
 
 p_left_panels = p_pca / p_ind / p_hetero + plot_layout(axis_titles = "collect")
 

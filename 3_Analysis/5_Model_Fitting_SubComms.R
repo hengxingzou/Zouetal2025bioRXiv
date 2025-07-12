@@ -206,7 +206,7 @@ p_yr_all = year_all_params %>%
 
 p_yr_all
 
-# Save figure
+# Save figure: Figure S19
 
 ggsave(paste0(figure_dir, "CWM_lm_Year_Compare.png"), p_yr_all, device = "png", width = 1600, height = 1200, unit = "px")
 
@@ -317,14 +317,14 @@ write_csv(cwm_params_nointeractions, paste0(stats_dir, "CWM_Params_No_Interactio
 
 p_tr_cwm_all_1 = cwm_params_nointeractions %>% 
   filter(trait %in% trait_labels[1:4]) %>% 
-  ggplot(aes(y = parameters, x = estimate, color = positive, alpha = signif, shape = Community)) + 
+  ggplot(aes(y = parameters, x = estimate, color = Community, alpha = signif, shape = Community)) + 
   geom_pointrange(aes(xmin = estimate-se, xmax = estimate+se), 
                   position = ggstance::position_dodgev(height = 0.75),
                   size = 0.5) + 
   geom_vline(xintercept = 0, color = "black") + 
   scale_shape_manual(values = c(17, 15, 16)) + 
   scale_alpha_manual(values = c(0.2, 1)) +
-  scale_color_manual(values = color_2) +
+  scale_color_manual(values = color_3) +
   xlab("Estimate") + 
   ylab("Parameter") +
   ggh4x::facet_wrap2(. ~ trait, scales = "free_x", ncol = 4) + 
@@ -338,14 +338,14 @@ p_tr_cwm_all_1 = cwm_params_nointeractions %>%
 
 p_tr_cwm_all_2 = cwm_params_nointeractions %>% 
   filter(trait %in% trait_labels[c(8, 9, 11)]) %>% 
-  ggplot(aes(y = parameters, x = estimate, color = positive, alpha = signif, shape = Community)) + 
+  ggplot(aes(y = parameters, x = estimate, color = Community, alpha = signif, shape = Community)) + 
   geom_pointrange(aes(xmin = estimate-se, xmax = estimate+se), 
                   position = ggstance::position_dodgev(height = 0.75),
                   size = 0.5) + 
   geom_vline(xintercept = 0, color = "black") + 
   scale_shape_manual(values = c(17, 15, 16)) + 
   scale_alpha_manual(values = c(0.2, 1)) +
-  scale_color_manual(values = color_2) +
+  scale_color_manual(values = color_3) +
   xlab("Estimate") + 
   ylab("Parameter") +
   ggh4x::facet_wrap2(. ~ trait, scales = "free_x", ncol = 4) + 
@@ -362,7 +362,7 @@ p_tr_cwm_all = p_tr_cwm_all_1 / p_tr_cwm_all_2 + plot_layout(axes = "collect", d
 
 p_tr_cwm_all
 
-# Save figure
+# Save figure: Figure 1C
 
 ggsave(paste0(figure_dir, "CWM_Year_Env_Compare_NoInteraction.pdf"), p_tr_cwm_all, width = 3200, height = 2400, unit = "px")
 

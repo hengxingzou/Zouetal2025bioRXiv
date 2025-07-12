@@ -117,7 +117,7 @@ p_pca = as.data.frame(loadings_base) %>%
 
 p_pca
 
-# Save figure
+# Save figure: Figure 2A, top panel
 
 ggsave(paste0(figure_dir, "Functional_Space_Axes.png"), p_pca, device = "png", 
        width = 1600, height = 1200, unit = "px")

@@ -68,6 +68,58 @@ All_Contribs = read_csv(paste0(generated_dir, "Species_Contributions.csv"))
 latlong_shp = read_sf(paste0(database_dir, "BBS_LatLong_strata.shp"))
 
 
+########## Example of Single Grid ##########
+
+
+example_grid = All_Contribs %>% 
+  filter(Region == "40_-110") %>% 
+  mutate(Trait = recode(Trait, !!!trait_labels)) %>% 
+  mutate(Trait = factor(Trait, trait_labels))
+
+# Distribution of species contributions
+
+p_distrib = example_grid %>%
+  ggplot(aes(x = abs(Species_Contrib))) + 
+  geom_histogram(fill = "#D98E04") + 
+  xlab("Absolute value of species contributions") + 
+  ylab("Count") +
+  ggh4x::facet_wrap2(.~Trait, scales = "free", ncol = 4, nrow = 3) + 
+  theme_bw() + 
+  theme(axis.text.x = element_text(size = 10, angle = 30, hjust = 1),
+        axis.text.y = element_text(size = 10),
+        axis.title = element_text(size = 12),
+        strip.text = element_text(size = 10))
+
+# All contributions sum up to CWM slope
+
+p_sum = example_grid %>% 
+  # filter(Trait == "Beak PC1") %>% 
+  group_by(Trait) %>%
+  arrange(desc(abs(Species_Contrib))) %>% 
+  mutate(cumulative_contrib = cumsum(Species_Contrib)) %>% 
+  ggplot(aes(x = reorder(Species, desc(abs(Species_Contrib))), y = cumulative_contrib)) +
+  geom_point() + 
+  xlab("Species, ordered by absolute values of contributions") + 
+  ylab("Cumulative contributions") +
+  ggh4x::facet_wrap2(.~Trait, scales = "free", ncol = 4, nrow = 3) +
+  geom_hline(aes(yintercept = CWM_Slope), color = "#D98E04", linewidth = 1) +
+  theme_bw() + 
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.text.y = element_text(size = 10),
+        axis.title = element_text(size = 12), 
+        strip.text = element_text(size = 10),
+        panel.grid.major.x = element_blank()
+  )
+
+# Save figures: Figure S17-S18
+
+ggsave("CWM_Figures/Contribution/Distribution.png", p_distrib, device = "png", 
+       width = 4800, height = 2400, unit = "px")
+ggsave("CWM_Figures/Contribution/CumulativeSum.png", p_sum, device = "png", 
+       width = 4800, height = 2400, unit = "px")
+
+
 ########## Top 10% Contributing Species ##########
 
 
@@ -168,7 +220,7 @@ names(pls_count) = md_traits
 
 pls_count
 
-# Save figures
+# Save figures: Figures S6-S12
 
 ggsave(paste0(figure_dir, "Contributions_Beak.png"), pls_count$PC1_beak, device = "png", 
        width = 1600, height = 1200, unit = "px")
@@ -257,7 +309,7 @@ names(pls_avg_topspp) = md_traits
 
 pls_avg_topspp
 
-# Save single-panel figures
+# Save single-panel figures; these are single panels in Figure 3
 
 ggsave(paste0(figure_dir, "Beak_Contour.png"), pls_avg_topspp$PC1_beak, 
        width = 3200, height = 2400, unit = "px")
@@ -274,7 +326,7 @@ ggsave(paste0(figure_dir, "Corr_GenLength_Contour.png"), pls_avg_topspp$corr_Gen
 ggsave(paste0(figure_dir, "Mass_Contour.png"), pls_avg_topspp$Mass, 
        width = 3200, height = 2400, unit = "px")
 
-# Combine all panels
+# Combine all panels (Figure 3)
 
 pls_contour = (pls_avg_topspp$PC1_beak + theme(legend.position = "none")) + 
   (pls_avg_topspp$PC1_wing + theme(legend.position = "none")) + 

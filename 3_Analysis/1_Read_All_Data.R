@@ -15,7 +15,8 @@ cl = makeCluster(4, outfile = "")
 registerDoSNOW(cl)
 
 color_2 = c("#2972B3", "#D98E04")
-color_4 = c("#2972B3", "#99C8F2", "#D98E04", "#734002")
+color_3 = c("#464DAE", "#CC7252", "#850394")
+color_4 = c("#2972B3", "#734002", "#D98E04", "#99C8F2")
 
 # Change the directory according to your working environment
 
@@ -28,7 +29,7 @@ generated_dir = "GeneratedData/"
 
 # Read community-weighted metrics of all species
 
-All_Weighted_Metrics = read_csv(paste0(generated_dir, "CWMetrics_Filtered_.csv")) %>% 
+All_Weighted_Metrics = read_csv(paste0(generated_dir, "CWMetrics_Filtered.csv")) %>% 
   rename("Hand.Wing.Index" = "Hand-Wing.Index")
 
 # Read environmental data
