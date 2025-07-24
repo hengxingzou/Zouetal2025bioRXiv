@@ -29,7 +29,7 @@ generated_dir = "GeneratedData/"
 # All_Communities_Filtered is the one that filters out communities where 
 # species with either positive or negative trends are less than 10
 
-All_Comms = read_csv("/home/hxzou/proj-birds/FunctionalDiversity/FD/GeneratedData/All_Communities_Filtered.csv")
+All_Comms = read_csv(paste0(database_dir, "All_Communities_Filtered.csv"))
 
 top_spp = c("Branta canadensis", "Turdus migratorius", "Cathartes aura", "Zenaida macroura",
             "Meleagris gallopavo", "Corvus brachyrhynchos", "Quiscalus quiscula", "Corvus corax",
@@ -50,13 +50,13 @@ top_spp = c("Branta canadensis", "Turdus migratorius", "Cathartes aura", "Zenaid
 
 # Read functional traits
 
-All_Funct_Data = read_csv(database_dir, "Filtered_Funct_Data.csv") %>% 
+All_Funct_Data = read_csv(paste0(database_dir, "Filtered_Funct_Data.csv")) %>% 
   column_to_rownames(var = "Species")
 
 # Select functional traits
 
 traits_exten = All_Funct_Data[, c(1:10, 60:65, # morphology
-                                  11, 38, 59, 81, 82)] # life history
+                                  11, 38, 59, 66:67)] # life history
 
 grids = unique(All_Comms$region)
 
