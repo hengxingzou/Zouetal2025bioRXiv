@@ -39,10 +39,6 @@ This repository contains the following directories:
 
 All other files are shape files and their required auxiliaries used for spatial analyses. Files starting with `BBS_LatLong_strata` are one-degree grids, and files starting with `bcr_strata` are shape files for Bird Conservation Regions (BCR). All files were extracted from the package `bbsBayes2`.
 
-# Files in `GeneratedData`
-
-
-
 # Important Note
 
 To obtain bird communities from NABBS data, we first fit hierarchical Bayesian models with spatial autocorrelation for each of the 470 species using the package [`bbsBayes2`](https://bbsbayes.github.io/bbsBayes2/index.html)). Although we provide the code for doing so (`1_FitModels/1_Run_Model.R)` for reproducibility purposes, **this is an extremely time-consuming process conducted on high-performance computation clusters over several weeks and cannot be done on personal laptops.** Therefore, we strongly recommend users to start from `2_Calculate_CWM.R` in `2_GenerateCommunityData` to read the pre-compiled community composition data, which is supplied as `All_Communities_Filtered.csv` under `Database`, then proceed to all steps in `3_Analysis`. Likewise, we recommend users to skip `4_Process_HYDE_Data.R` and `5_Process_Climate_Data.R` in `2_GenerateCommunityData` and use the processed data supplied in `Database` to run all steps in `3_Analysis`. 
