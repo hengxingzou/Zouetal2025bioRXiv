@@ -1,0 +1,26 @@
+{
+    "id": "DCD2F404",
+    "path": "~/Desktop/常用/Postdoc/Birds/FunctionalDiversity/Project-CWM/2_GenerateCommunityData/2_Calculate_CWM.R",
+    "project_path": "2_GenerateCommunityData/2_Calculate_CWM.R",
+    "type": "r_source",
+    "hash": "2367135848",
+    "contents": "",
+    "dirty": false,
+    "created": 1753323333108.0,
+    "source_on_save": false,
+    "relative_order": 1,
+    "properties": {
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "35,99",
+        "scrollLine": "12"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1753323348,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1753323348456,
+    "read_only": false,
+    "read_only_alternatives": []
+}
